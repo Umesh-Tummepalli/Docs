@@ -182,3 +182,23 @@
       }
       
 }
+@media print {
+  body * {
+    @apply invisible;
+  }
+
+  #document,
+  #document * {
+    @apply visible;
+  }
+
+  #document {
+    position: absolute;
+    inset: 0;
+  }
+}
+
+@page {
+  size: portrait;
+  margin: 0;
+}

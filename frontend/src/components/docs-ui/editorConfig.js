@@ -17,7 +17,10 @@ export const editorConfig = {
   editorProps:{
     attributes: {
     style : "padding-left:56px ;padding-right:56px",
-    class : "focus:outline-none print:border-0 bg-white border-[#C7C7C7] flex flex-col min-h-[1123px] w-[794px] shadow-2xl border-[#c4c7c5] border-1 rounded pt-10"
+    class : "focus:outline-none print:border-0 bg-white border-[#C7C7C7] flex flex-col min-h-[1123px] w-[794px] shadow-2xl border-[#c4c7c5] border-1 rounded pt-10",
+    spellcheck: "true",
+    lang: "en-US",
+    autocorrect: "on"
   },
 },
   extensions: [StarterKit, TaskItem.configure({
