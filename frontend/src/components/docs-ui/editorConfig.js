@@ -6,6 +6,7 @@ import TableHeader from "@tiptap/extension-table-header";
 import TableRow from "@tiptap/extension-table-row";
 import { TableKit } from "@tiptap/extension-table";
 import Image from "@tiptap/extension-image";
+import Underline from "@tiptap/extension-underline";
 
 import {
   ImageResize,
@@ -37,6 +38,7 @@ export const editorConfig = {
       alwaysPreserveAspectRatio: true,
     }
   }),
+    Underline,
     ImageResize.configure({
     inline:true,
     }),

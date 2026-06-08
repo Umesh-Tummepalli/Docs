@@ -3,15 +3,18 @@ import {cn} from "../../lib/utils"
 import { Bold, Italic, Printer, Redo2, SpellCheck, Underline, Undo2 } from "lucide-react"
 import { useEditorContext } from "./context/EditorContext"
 import { useEditorState } from "@tiptap/react"
-const ToolbarButton = ({ Icon, onClick = null, isActive = null, label, disabled = false }) => {
+import {Separator} from "../ui/separator"
+const ToolbarButton = ({ Icon, onClick = null, isActive = false, label, disabled = false }) => {
 
   return <>
     <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={onClick}
       title={label}
+      aria-label={label}
+      aria-pressed={isActive}
       disabled={disabled}
       className={cn(
-        "  h-7 min-w-7 flex items-center justify-center rounded-md hover:bg-[#e2e7eb] p-1 mx-1 ",
-        isActive && "bg-[#d3e3fd]",
+        "h-7 min-w-7 flex items-center justify-center rounded-md hover:bg-[#e2e7eb] p-1 mx-1 transition-colors",
+        isActive && "bg-[#d3e3fd] text-[#0b57d0] hover:bg-[#d3e3fd]",
         disabled && "opacity-40 pointer-events-none"
       )}
     >
@@ -40,16 +43,19 @@ const ToolBar = () => {
     editor.commands.focus();
   };
 
-  const { canUndo, canRedo } = useEditorState({
+  const { canUndo, canRedo, isBoldActive, isItalicActive, isUnderlineActive } = useEditorState({
     editor,
-    selector: ctx => {
+    selector: ({ editor: currentEditor }) => {
       return {
-        canUndo: ctx.editor?.can().chain().focus().undo().run(),
-        canRedo: ctx.editor?.can().chain().focus().redo().run(),
+        canUndo: currentEditor?.can().chain().focus().undo().run() ?? false,
+        canRedo: currentEditor?.can().chain().focus().redo().run() ?? false,
+        isBoldActive: currentEditor?.isActive("bold") ?? false,
+        isItalicActive: currentEditor?.isActive("italic") ?? false,
+        isUnderlineActive: currentEditor?.isActive("underline") ?? false,
       }
     },
   })
-  const sections = [
+  const sections = [[
   {
       label: "undo",
       Icon: Undo2,
@@ -81,33 +87,46 @@ const ToolBar = () => {
       isActive: spellcheckEnabled,
       onClick: toggleSpellcheck
     },
+  ],
+
+   [
     {
-      label: "Bold",
+      label: "bold",
       Icon: Bold,
+      isActive: isBoldActive,
       onClick : () => {
-        console.log("This is bold functionality");
+        editor?.chain().focus().toggleBold().run();
       }
     },
     {
       label: "italic",
       Icon: Italic,
+      isActive: isItalicActive,
       onClick: () => {
-        console.log("italic");
+        editor?.chain().focus().toggleItalic().run();
       }
     },
     {
       label: "underline",
       Icon: Underline,
+      isActive: isUnderlineActive,
       onClick: () => {
-        console.log("underline");
+        editor?.chain().focus().toggleUnderline().run();
       }
     },
   ]
+    ]
   return <>
     <div className="sticky top-0.5 text-center bg-[#f0f4f9] m-2 rounded-full p-1 flex ">
       {
-        sections.map((item) => {
-          return <ToolbarButton key={item.label} onClick={item.onClick} Icon={item.Icon} label={item.label} isActive={item.isActive} disabled={item.disabled} />
+        sections[0]?.map((item) => {
+          return <ToolbarButton key={item.label} {...item} />
+        })
+      }
+      <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
+      {
+        sections[1]?.map((item) => {
+          return <ToolbarButton key={item.label} {...item} />
         })
       }
     </div>
