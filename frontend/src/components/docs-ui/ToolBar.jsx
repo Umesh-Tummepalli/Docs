@@ -1,8 +1,8 @@
 import { useState } from "react"
 import {cn} from "../../lib/utils"
-import { Bold, Italic, Printer, Redo2, SpellCheck, Underline, Undo2 } from "lucide-react"
+import { Bold, Italic, ListTodo, MessageSquarePlus, Printer, Redo2, RemoveFormattingIcon, SpellCheck, Underline, Undo2 } from "lucide-react"
 import { useEditorContext } from "./context/EditorContext"
-import { useEditorState } from "@tiptap/react"
+import { isActive, useEditorState } from "@tiptap/react"
 import {Separator} from "../ui/separator"
 const ToolbarButton = ({ Icon, onClick = null, isActive = false, label, disabled = false }) => {
 
@@ -43,17 +43,18 @@ const ToolBar = () => {
     editor.commands.focus();
   };
 
-  const { canUndo, canRedo, isBoldActive, isItalicActive, isUnderlineActive } = useEditorState({
-    editor,
-    selector: ({ editor: currentEditor }) => {
-      return {
-        canUndo: currentEditor?.can().chain().focus().undo().run() ?? false,
-        canRedo: currentEditor?.can().chain().focus().redo().run() ?? false,
-        isBoldActive: currentEditor?.isActive("bold") ?? false,
-        isItalicActive: currentEditor?.isActive("italic") ?? false,
-        isUnderlineActive: currentEditor?.isActive("underline") ?? false,
-      }
-    },
+  const { canUndo, canRedo, isBoldActive, isItalicActive, isUnderlineActive,isTodoActive } = useEditorState({
+  editor,
+  selector: ({ editor: currentEditor }) => {
+    return {
+      canUndo: currentEditor?.can().chain().focus().undo().run() ?? false,
+      canRedo: currentEditor?.can().chain().focus().redo().run() ?? false,
+      isBoldActive: currentEditor?.isActive("bold") ?? false,
+      isItalicActive: currentEditor?.isActive("italic") ?? false,
+      isUnderlineActive: currentEditor?.isActive("underline") ?? false,
+      isTodoActive: currentEditor?.isActive("taskList") ?? false,
+    }
+  },
   })
   const sections = [[
   {
@@ -69,7 +70,6 @@ const ToolBar = () => {
       Icon : Redo2,
       disabled: !canRedo,
       onClick: () => {
-        console.log("redo");
         editor?.chain().focus().redo().run()
       }
     },
@@ -77,7 +77,6 @@ const ToolBar = () => {
       label: "print",
       Icon: Printer,
       onClick: () => {
-        console.log("printer");
         window.print();
       }
     },
@@ -113,22 +112,47 @@ const ToolBar = () => {
       onClick: () => {
         editor?.chain().focus().toggleUnderline().run();
       }
-    },
-  ]
+     },
+    ],
+    [
+      {
+        label: "comment",
+        Icon: MessageSquarePlus,
+        onClick: () => {
+          console.log("comment");
+       }
+      },
+      {
+        label: "todo",
+        Icon: ListTodo,
+        onClick: () => {
+          editor?.chain().focus().toggleTaskList().run();
+        },
+        isActive:isTodoActive,
+      },
+      {
+        label: "remove-formatting",
+        Icon: RemoveFormattingIcon,
+        onClick: () => {
+          editor?.chain().focus().unsetAllMarks().clearNodes().run();
+        }
+      }
+   ]
     ]
   return <>
-    <div className="sticky top-0.5 text-center bg-[#f0f4f9] m-2 rounded-full p-1 flex ">
-      {
-        sections[0]?.map((item) => {
-          return <ToolbarButton key={item.label} {...item} />
-        })
-      }
-      <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
-      {
-        sections[1]?.map((item) => {
-          return <ToolbarButton key={item.label} {...item} />
-        })
-      }
+    <div className="sticky top-20 z-40  ">
+      <div className="mx-auto flex w-fit max-w-full items-center rounded-full bg-[#f9fbfd] p-1 shadow-sm ring-1 ring-slate-200">
+        {sections.map((section, sectionIndex) => (
+          <div key={sectionIndex} className="flex items-center">
+            {section.map((item) => {
+              return <ToolbarButton key={item.label} {...item} />
+            })}
+            {sectionIndex < sections.length - 1 && (
+              <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   </>
 }

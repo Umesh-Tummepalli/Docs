@@ -8,7 +8,7 @@ export default function Document() {
   const { docId } = useParams();
   const editor = useEditor(editorConfig)
   return (
-    <div className="">
+    <div className="bg-[#f9fbfd]">
       <h1>Document {docId}</h1>
       <div className="min-h-screen">
         <EditorContext.Provider value={editor}>

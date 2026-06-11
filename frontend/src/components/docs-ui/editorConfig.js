@@ -7,6 +7,7 @@ import TableRow from "@tiptap/extension-table-row";
 import { TableKit } from "@tiptap/extension-table";
 import Image from "@tiptap/extension-image";
 import Underline from "@tiptap/extension-underline";
+import { FontFamily, TextStyle } from '@tiptap/extension-text-style'
 
 import {
   ImageResize,
@@ -43,7 +44,9 @@ export const editorConfig = {
     inline:true,
     }),
     Figure,
-    Figcaption
+    Figcaption,
+    FontFamily,
+    TextStyle
   ], // define your extension array
   content: '<h1>Hello World!</h1>', // initial content
 }
