@@ -2,11 +2,9 @@ import { useState } from "react"
 import {cn} from "../../lib/utils"
 import { Bold, ChevronDownIcon, Italic, ListTodo, MessageSquarePlus, Printer, Redo2, RemoveFormattingIcon, SpellCheck, Underline, Undo2 } from "lucide-react"
 import { useEditorContext } from "./context/EditorContext"
-import { isActive, useEditorState } from "@tiptap/react"
+import { useEditorState } from "@tiptap/react"
 import { Separator } from "../ui/separator"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "../ui/dropdown-menu"
-
-
 
 const ToolbarButton = ({ Icon, onClick = null, isActive = false, label, disabled = false }) => {
 
@@ -37,13 +35,20 @@ const FontFamilyButton = () => {
     { label: 'Georgia', value: 'Georgia' },
     { label: 'Verdana', value: 'Verdana' },
   ]
+
+  const { currentFontFamily } = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => ({
+      currentFontFamily: currentEditor?.getAttributes("textStyle").fontFamily || "Arial",
+    }),
+  })
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className={`h-7 w-30 shrink-0 flex items-center justify-between rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm`}
-        >
+        <button className={`h-7 w-30 shrink-0 flex items-center justify-between rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm`}>
           <span className="truncate">
-            {editor?.getAttributes("textStyle").fontFamily || "Arial"}
+            {currentFontFamily}
           </span>
           <ChevronDownIcon className="ml-2 size-4 shrink-0"/>
         </button>
@@ -55,12 +60,11 @@ const FontFamilyButton = () => {
               <button key={value}
                 className={cn(
                   "flex items-center gap-x-2 px-2 py-1 rounded-sm hover:bg-neutral-200/80",
-                  editor?.getAttributes("textStyle").fontFamily===value && 'bg-neutral-200/80'
+                  currentFontFamily === value && 'bg-neutral-200/80'
                 )}
                 style={{ fontFamily: value }}
                 onClick={() => {
-                  console.log(value);
-
+                  editor?.chain().focus().setFontFamily(value).run();
                 }}
               >
                 <span className="text-sm">
@@ -85,13 +89,35 @@ const HeadingButton = () => {
     { label: "Heading 5", value: 5 },
   ];
 
-  const currentLabel = editor?.isActive("paragraph")
-    ? "Normal text"
-    : options.find(
-        (option) =>
-          typeof option.value === "number" &&
-          editor?.isActive("heading", { level: option.value })
-      )?.label || "Normal text";
+  const { currentLabel, activeBlock } = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => {
+      if (!currentEditor) {
+        return {
+          currentLabel: "Normal text",
+          activeBlock: "paragraph",
+        };
+      }
+
+      const activeHeading = options.find(
+        ({ value }) =>
+          typeof value === "number" &&
+          currentEditor.isActive("heading", { level: value })
+      );
+
+      if (activeHeading) {
+        return {
+          currentLabel: activeHeading.label,
+          activeBlock: activeHeading.value,
+        };
+      }
+
+      return {
+        currentLabel: "Normal text",
+        activeBlock: "paragraph",
+      };
+    },
+  });
 
   return (
     <DropdownMenu>
@@ -103,10 +129,7 @@ const HeadingButton = () => {
       </DropdownMenuTrigger>
       <DropdownMenuContent className="p-1 flex flex-col gap-y-1 ring-0 bg-[#f9fbfd]">
         {options.map(({ label, value }) => {
-          const active =
-            value === "paragraph"
-              ? editor?.isActive("paragraph")
-              : editor?.isActive("heading", { level: value });
+          const active = activeBlock === value;
 
           return (
             <button
@@ -119,7 +142,7 @@ const HeadingButton = () => {
                 if (value === "paragraph") {
                   editor?.chain().focus().setParagraph().run();
                 } else {
-                  editor?.chain().focus().toggleHeading({ level: value }).run();
+                  editor?.chain().focus().setHeading({ level: value }).run();
                 }
               }}
             >
