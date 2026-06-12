@@ -1,9 +1,13 @@
 import { useState } from "react"
 import {cn} from "../../lib/utils"
-import { Bold, Italic, ListTodo, MessageSquarePlus, Printer, Redo2, RemoveFormattingIcon, SpellCheck, Underline, Undo2 } from "lucide-react"
+import { Bold, ChevronDownIcon, Italic, ListTodo, MessageSquarePlus, Printer, Redo2, RemoveFormattingIcon, SpellCheck, Underline, Undo2 } from "lucide-react"
 import { useEditorContext } from "./context/EditorContext"
 import { isActive, useEditorState } from "@tiptap/react"
-import {Separator} from "../ui/separator"
+import { Separator } from "../ui/separator"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "../ui/dropdown-menu"
+
+
+
 const ToolbarButton = ({ Icon, onClick = null, isActive = false, label, disabled = false }) => {
 
   return <>
@@ -21,6 +25,111 @@ const ToolbarButton = ({ Icon, onClick = null, isActive = false, label, disabled
       <Icon size={16}/>
     </button>
   </>
+}
+
+
+const FontFamilyButton = () => {
+  const editor = useEditorContext();
+  const fonts = [
+    { label: "Arial", value: "Arial" },
+    { label: 'Times New Roman', value: 'Times New Roman' },
+    { label: 'Courier New', value: 'Courier New' },
+    { label: 'Georgia', value: 'Georgia' },
+    { label: 'Verdana', value: 'Verdana' },
+  ]
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className={`h-7 w-30 shrink-0 flex items-center justify-between rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm`}
+        >
+          <span className="truncate">
+            {editor?.getAttributes("textStyle").fontFamily || "Arial"}
+          </span>
+          <ChevronDownIcon className="ml-2 size-4 shrink-0"/>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="p-1 flex flex-col gap-y-1 ring-0 bg-[#f9fbfd]">
+        {
+          fonts.map(({ label, value }) => {
+            return (
+              <button key={value}
+                className={cn(
+                  "flex items-center gap-x-2 px-2 py-1 rounded-sm hover:bg-neutral-200/80",
+                  editor?.getAttributes("textStyle").fontFamily===value && 'bg-neutral-200/80'
+                )}
+                style={{ fontFamily: value }}
+                onClick={() => {
+                  console.log(value);
+
+                }}
+              >
+                <span className="text-sm">
+                  {label}
+                </span>
+              </button>
+            )
+          })
+        }
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+const HeadingButton = () => {
+  const editor = useEditorContext();
+  const options = [
+    { label: "Normal text", value: "paragraph" },
+    { label: "Heading 1", value: 1 },
+    { label: "Heading 2", value: 2 },
+    { label: "Heading 3", value: 3 },
+    { label: "Heading 4", value: 4 },
+    { label: "Heading 5", value: 5 },
+  ];
+
+  const currentLabel = editor?.isActive("paragraph")
+    ? "Normal text"
+    : options.find(
+        (option) =>
+          typeof option.value === "number" &&
+          editor?.isActive("heading", { level: option.value })
+      )?.label || "Normal text";
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className={`h-7 w-32 shrink-0 flex items-center justify-between rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm`}>
+          <span className="truncate">{currentLabel}</span>
+          <ChevronDownIcon className="ml-2 size-4 shrink-0" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="p-1 flex flex-col gap-y-1 ring-0 bg-[#f9fbfd]">
+        {options.map(({ label, value }) => {
+          const active =
+            value === "paragraph"
+              ? editor?.isActive("paragraph")
+              : editor?.isActive("heading", { level: value });
+
+          return (
+            <button
+              key={label}
+              className={cn(
+                "flex items-center gap-x-2 px-2 py-1 rounded-sm hover:bg-neutral-200/80 text-left",
+                active && "bg-neutral-200/80"
+              )}
+              onClick={() => {
+                if (value === "paragraph") {
+                  editor?.chain().focus().setParagraph().run();
+                } else {
+                  editor?.chain().focus().toggleHeading({ level: value }).run();
+                }
+              }}
+            >
+              <span className="text-sm">{label}</span>
+            </button>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 const ToolBar = () => {
@@ -56,6 +165,8 @@ const ToolBar = () => {
     }
   },
   })
+
+
   const sections = [[
   {
       label: "undo",
@@ -142,16 +253,25 @@ const ToolBar = () => {
   return <>
     <div className="sticky top-20 z-40  ">
       <div className="mx-auto flex w-fit max-w-full items-center rounded-full bg-[#f9fbfd] p-1 shadow-sm ring-1 ring-slate-200">
-        {sections.map((section, sectionIndex) => (
-          <div key={sectionIndex} className="flex items-center">
-            {section.map((item) => {
-              return <ToolbarButton key={item.label} {...item} />
-            })}
-            {sectionIndex < sections.length - 1 && (
-              <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
-            )}
-          </div>
-        ))}
+        <div className="flex items-center">
+          {sections[0]?.map((item) => {
+            return <ToolbarButton key={item.label} {...item} />
+          })}
+          <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
+        </div>
+        <FontFamilyButton />
+        <HeadingButton/>
+        <div className="flex items-center">
+          {sections[1]?.map((item) => {
+            return <ToolbarButton key={item.label} {...item} />
+          })}
+          <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
+        </div>
+        <div className="flex items-center">
+          {sections[2]?.map((item) => {
+            return <ToolbarButton key={item.label} {...item} />
+          })}
+        </div>
       </div>
     </div>
   </>
