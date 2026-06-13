@@ -56,11 +56,12 @@
     margin-bottom: 1.5rem;
   }
 
-  h1 { font-size: 1.4rem; }
-  h2 { font-size: 1.2rem; }
-  h3 { font-size: 1.1rem; }
-  h4, h5, h6 { font-size: 1rem; }
-
+  h1 { font-size: 32px; }
+  h2 { font-size: 24px; }
+  h3 { font-size: 20px; }
+  h4 { font-size: 16px; }
+  h5, h6 { font-size: 14px; }
+  
   /* List styles */
   ul, ol {
     padding: 0 1rem;
@@ -196,6 +197,11 @@
     position: absolute;
     inset: 0;
   }
+  mark {
+      border-radius: 0.4rem;
+      box-decoration-break: clone;
+      padding: 0.1rem 0.3rem;
+    }
 }
 
 @page {

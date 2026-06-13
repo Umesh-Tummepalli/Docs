@@ -9,8 +9,10 @@ import Image from "@tiptap/extension-image";
 import Underline from "@tiptap/extension-underline";
 import { FontFamily, TextStyle } from '@tiptap/extension-text-style'
 import Heading from '@tiptap/extension-heading'
+import Highlight from '@tiptap/extension-highlight'
+import { Color } from '@tiptap/extension-text-style'
 
-import {
+import {  
   ImageResize,
   Figure,
   Figcaption,
@@ -51,6 +53,12 @@ export const editorConfig = {
     Heading.configure({
         levels: [1, 2, 3,4,5],
       }),
+    Highlight.configure({
+      multicolor: true,
+    }),
+    Color.configure({
+      types: ['textStyle'],
+    })
   ], // define your extension array
   content: '<h1>Hello World!</h1>', // initial content
 }

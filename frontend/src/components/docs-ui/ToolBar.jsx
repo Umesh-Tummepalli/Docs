@@ -1,10 +1,11 @@
-import { useState } from "react"
+import { useState ,useRef,useEffect} from "react"
 import {cn} from "../../lib/utils"
-import { Bold, ChevronDownIcon, Italic, ListTodo, MessageSquarePlus, Printer, Redo2, RemoveFormattingIcon, SpellCheck, Underline, Undo2 } from "lucide-react"
+import { Bold, ChevronDownCircleIcon, ChevronDownIcon, Highlighter, Italic, ListTodo, MessageSquarePlus, Printer, Redo2, RemoveFormattingIcon, SpellCheck, Underline, Undo2 } from "lucide-react"
 import { useEditorContext } from "./context/EditorContext"
 import { useEditorState } from "@tiptap/react"
 import { Separator } from "../ui/separator"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "../ui/dropdown-menu"
+import { SketchPicker } from 'react-color'
 
 const ToolbarButton = ({ Icon, onClick = null, isActive = false, label, disabled = false }) => {
 
@@ -47,7 +48,7 @@ const FontFamilyButton = () => {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className={`h-7 w-30 shrink-0 flex items-center justify-between rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm`}>
-          <span className="truncate">
+          <span className="truncate text-sm whitespace-nowrap">
             {currentFontFamily}
           </span>
           <ChevronDownIcon className="ml-2 size-4 shrink-0"/>
@@ -78,6 +79,162 @@ const FontFamilyButton = () => {
     </DropdownMenu>
   )
 }
+
+const HighlightButton = () => {
+  const editor = useEditorContext();
+
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [color, setColor] = useState("#faf594");
+
+  const wrapperRef = useRef(null);
+
+  const PRESET_COLORS = [
+    "#faf594",
+    "#f28b82",
+    "#fbbc04",
+    "#ccff90",
+    "#a7ffeb",
+    "#aecbfa",
+    "#d7aefb",
+  ];
+
+  const { isHighlighted, highlightColor } = useEditorState({
+    editor,
+    selector: ({ editor }) => ({
+      highlightColor: editor.getAttributes("highlight").color,
+      isHighlighted: editor.isActive("highlight"),
+    }),
+  });
+
+  useEffect(() => {
+    if (highlightColor) {
+      setColor(highlightColor);
+    }
+  }, [highlightColor]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(e.target)
+      ) {
+        setPanelOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside
+      );
+    };
+  }, []);
+
+  const applyHighlight = (selectedColor) => {
+    editor
+      ?.chain()
+      .focus()
+      .setHighlight({ color: selectedColor })
+      .run();
+  };
+
+  return (
+    <div
+      ref={wrapperRef}
+      className="relative flex items-center"
+    >
+      {/* Apply Current Color */}
+      <button
+        className={cn(
+          "flex h-8 items-center justify-center rounded-l-md px-2 hover:bg-[#e2e7eb]",
+          isHighlighted &&
+            "bg-[#d3e3fd] text-[#0b57d0] hover:bg-[#d3e3fd]"
+        )}
+        onClick={() => applyHighlight(color)}
+      >
+        <div className="relative flex items-center justify-center">
+          <Highlighter size={16} />
+
+          <div
+            className="absolute -bottom-1 left-0 right-0 h-[3px] rounded-full"
+            style={{
+              backgroundColor:
+                highlightColor || color,
+            }}
+          />
+        </div>
+      </button>
+
+      {/* Dropdown Toggle */}
+      <button
+        className={cn(
+          "h-8 rounded-r-md px-1 hover:bg-[#e2e7eb]",
+          isHighlighted &&
+            "bg-[#d3e3fd] text-[#0b57d0] hover:bg-[#d3e3fd]"
+        )}
+        onClick={() =>
+          setPanelOpen((prev) => !prev)
+        }
+      >
+        <ChevronDownIcon size={14} />
+      </button>
+
+      {panelOpen && (
+        <div className="absolute left-0 top-full z-50 mt-2 rounded-lg border bg-white p-3 shadow-lg">
+          {/* Preset Colors */}
+          <div className="mb-3">
+            <p className="mb-2 text-xs text-gray-500">
+              Presets
+            </p>
+
+            <div className="flex flex-wrap gap-2">
+              {PRESET_COLORS.map((preset) => (
+                <button
+                  key={preset}
+                  className="h-6 w-6 rounded-full border transition-transform hover:scale-110"
+                  style={{
+                    backgroundColor: preset,
+                  }}
+                  onClick={() => {
+                    setColor(preset);
+                    applyHighlight(preset);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Custom Color Picker */}
+          <SketchPicker
+            color={color}
+            onChangeComplete={(c) => {
+              setColor(c.hex);
+              applyHighlight(c.hex);
+            }}
+          />
+
+          {/* Remove Highlight */}
+          <button
+            className="mt-3 w-full rounded-md border px-3 py-2 text-sm hover:bg-gray-100"
+            onClick={() => {
+              editor
+                ?.chain()
+                .focus()
+                .unsetHighlight()
+                .run();
+
+              setPanelOpen(false);
+            }}
+          >
+            Remove Highlight
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 const HeadingButton = () => {
   const editor = useEditorContext();
   const options = [
@@ -146,7 +303,22 @@ const HeadingButton = () => {
                 }
               }}
             >
-              <span className="text-sm">{label}</span>
+              <span className=""
+                style={{
+                  fontSize:
+                    value === "paragraph"
+                      ? "14px"
+                      : value === 1
+                        ? "32px"
+                        : value === 2
+                          ? "24px"
+                          : value === 3
+                            ? "20px"
+                            : value === 4
+                              ? "16px"
+                              : "14px",
+                }}
+              >{label}</span>
             </button>
           );
         })}
@@ -283,7 +455,8 @@ const ToolBar = () => {
           <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
         </div>
         <FontFamilyButton />
-        <HeadingButton/>
+        <HeadingButton />
+        <HighlightButton/>
         <div className="flex items-center">
           {sections[1]?.map((item) => {
             return <ToolbarButton key={item.label} {...item} />
