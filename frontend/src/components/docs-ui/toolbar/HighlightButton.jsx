@@ -52,6 +52,17 @@ const HighlightButton = () => {
     editor?.chain().focus().setHighlight({ color: selectedColor }).run();
   };
 
+  const toggleHighlight = () => {
+    if (!editor) return;
+
+    if (isHighlighted) {
+      editor.chain().focus().unsetHighlight().run();
+      return;
+    }
+
+    applyHighlight(pickerColor);
+  };
+
   return (
     <div ref={wrapperRef} className="relative flex items-center">
       <button
@@ -59,7 +70,7 @@ const HighlightButton = () => {
           "flex h-8 items-center justify-center rounded-l-md px-2 hover:bg-[#e2e7eb]",
           isHighlighted && "bg-[#d3e3fd] text-[#0b57d0] hover:bg-[#d3e3fd]"
         )}
-        onClick={() => applyHighlight(pickerColor)}
+        onClick={toggleHighlight}
       >
         <div className="relative flex items-center justify-center">
           <Highlighter size={16} />
@@ -75,7 +86,8 @@ const HighlightButton = () => {
       <button
         className={cn(
           "h-8 rounded-r-md px-1 hover:bg-[#e2e7eb]",
-          isHighlighted && "bg-[#d3e3fd] text-[#0b57d0] hover:bg-[#d3e3fd]"
+          isHighlighted && " hover:bg-[#d3e3fd]",
+          panelOpen&&"bg-[#d3e3fd] "
         )}
         onClick={() => setPanelOpen((prev) => !prev)}
       >
@@ -112,15 +124,6 @@ const HighlightButton = () => {
             }}
           />
 
-          <button
-            className="mt-3 w-full rounded-md border px-3 py-2 text-sm hover:bg-gray-100"
-            onClick={() => {
-              editor?.chain().focus().unsetHighlight().run();
-              setPanelOpen(false);
-            }}
-          >
-            Remove Highlight
-          </button>
         </div>
       )}
     </div>

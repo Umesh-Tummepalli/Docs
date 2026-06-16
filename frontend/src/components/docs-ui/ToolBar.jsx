@@ -21,7 +21,7 @@ import HeadingButton from "./toolbar/HeadingButton";
 import HighlightButton from "./toolbar/HighlightButton";
 import TextColorButton from "./toolbar/TextColorButton";
 import ToolbarButton from "./toolbar/ToolbarButton";
-
+import LinkButton from "./toolbar/LinkButton";
 const ToolBar = () => {
   const editor = useEditorContext();
   const [spellcheckEnabled, setSpellcheckEnabled] = useState(true);
@@ -147,16 +147,19 @@ const ToolBar = () => {
           ))}
           <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
         </div>
-        <FontFamilyButton />
-        <HeadingButton />
-        <HighlightButton />
-        <TextColorButton />
+        
         <div className="flex items-center">
           {sections[1]?.map((item) => (
             <ToolbarButton key={item.label} {...item} />
           ))}
           <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
         </div>
+        <FontFamilyButton />
+        <HeadingButton />
+        <HighlightButton />
+        <TextColorButton />
+        <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
+        <LinkButton/>
         <div className="flex items-center">
           {sections[2]?.map((item) => (
             <ToolbarButton key={item.label} {...item} />

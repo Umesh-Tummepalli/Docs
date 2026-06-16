@@ -38,15 +38,11 @@ const TextColorButton = () => {
   const [showCustomPicker, setShowCustomPicker] = useState(false);
   const wrapperRef = useRef(null);
 
-  const { isTextColored, textColor } = useEditorState({
+  const { textColor } = useEditorState({
     editor,
-    selector: ({ editor: currentEditor }) => {
-      const currentColor = currentEditor.getAttributes("textStyle").color;
-      return {
-        textColor: currentColor,
-        isTextColored: currentEditor.isActive("textStyle"),
-      };
-    },
+    selector: ({ editor: currentEditor }) => ({
+      textColor: currentEditor.getAttributes("textStyle").color,
+    }),
   });
 
   useEffect(() => {
@@ -69,15 +65,18 @@ const TextColorButton = () => {
   };
 
   return (
-    <div ref={wrapperRef} className="relative flex items-center">
-      <Button
+    <div ref={wrapperRef} className="relative flex items-center ">
+      <button
         variant="ghost"
         size="sm"
         className={cn(
-          "flex h-8 items-center justify-center rounded-l-md px-2 hover:bg-accent",
-          isTextColored && "bg-[#d3e3fd] text-[#0b57d0]  hover:bg-[#d3e3fd]"
+          "flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent hover:bg-[#e2e7eb]",
+          panelOpen && "bg-[#d3e3fd] text-[#0b57d0] "
         )}
-        onClick={() => applyTextColor(color)}
+        onClick={() => {
+          setPanelOpen((prev) => !prev);
+          setShowCustomPicker(false);
+        }}
       >
         <div className="relative flex items-center justify-center">
           <span className="text-sm font-medium">A</span>
@@ -88,34 +87,19 @@ const TextColorButton = () => {
             }}
           />
         </div>
-      </Button>
-
-      <Button
-        variant="ghost"
-        size="sm"
-        className={cn(
-          "h-8 rounded-r-md px-1 hover:bg-accent",
-          isTextColored && "bg-[#d3e3fd] text-[#0b57d0] hover:bg-[#d3e3fd]"
-        )}
-        onClick={() => {
-          setPanelOpen((prev) => !prev);
-          setShowCustomPicker(false);
-        }}
-      >
-        <ChevronDown className="h-4 w-4" />
-      </Button>
+      </button>
 
       {panelOpen && (
-        <div className="absolute left-0 top-full z-50 mt-2 w-64 rounded-lg  bg-popover p-3 shadow-lg">
+        <div className="absolute left-0 top-full z-50 mt-2 w-64 rounded-lg  bg-white p-3 shadow-lg">
           <div className="mb-3">
             <p className="mb-2 text-xs text-muted-foreground">Presets</p>
 
-            <div className="grid grid-cols-10 gap-1">
+            <div className="grid grid-cols-8 gap-1">
               {PRESET_COLORS.map((preset) => (
                 <button
                   key={preset}
                   className={cn(
-                    "h-6 w-6 rounded-full transition-transform hover:scale-110 shadow",
+                    "h-6 w-6 rounded-full  hover:scale-110 duration-200 ease-in-out  shadow",
                     color === preset && "ring-2 ring-offset-1 ring-primary "
                   )}
                   style={{
@@ -158,18 +142,6 @@ const TextColorButton = () => {
             />
           </div>
 
-          <Button
-            variant=""
-            className="w-full text-sm shadow "
-            onClick={() => {
-              editor?.chain().focus().unsetColor().run();
-              setColor("#000000");
-              setShowCustomPicker(false);
-              setPanelOpen(false);
-            }}
-          >
-            Remove Color
-          </Button>
         </div>
       )}
     </div>

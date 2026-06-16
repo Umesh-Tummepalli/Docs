@@ -39,6 +39,14 @@
   --sidebar-ring: oklch(59.8% 0.912 217.2);
 }
 .tiptap {
+  a {
+      color: #2e6ad2;
+      cursor: pointer;
+  
+      &:hover {
+        @apply: underline
+      }
+    }
   /* First child margin */
   :first-child {
     margin-top: 0;
@@ -181,7 +189,6 @@
           outline: 3px solid black;
         }
       }
-      
 }
 @media print {
   body * {
