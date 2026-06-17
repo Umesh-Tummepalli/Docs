@@ -1,17 +1,26 @@
 import { useState, useEffect, useRef } from "react";
+import { useEditorState } from "@tiptap/react";
 import { useEditorContext } from "../context/EditorContext";
 import { Link2Icon, Check, X, Trash } from "lucide-react";
 import ToolbarButton from "./ToolbarButton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils.js";
+import { getMarkRange } from "@tiptap/core";
 
 const LinkButton = () => {
   const editor = useEditorContext();
   const [panelOpen, setPanelOpen] = useState(false);
   const [href, setHref] = useState("");
   const [text, setText] = useState("");
+  const [selectionRange, setSelectionRange] = useState(null);
   const wrapperRef = useRef(null);
+
+  const { isLinkActive } = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => ({
+      isLinkActive: currentEditor.isActive("link"),
+    }),
+  });
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -28,13 +37,30 @@ const LinkButton = () => {
   }, []);
 
   const onOpenPanel = () => {
-    if (editor?.isActive("link")) {
+    if (!editor) return;
+
+    let currentFrom = editor.state.selection.from;
+    let currentTo = editor.state.selection.to;
+
+    if (editor.isActive("link")) {
       setHref(editor.getAttributes("link").href || "");
+      
+      const linkRange = getMarkRange(
+        editor.state.selection.$from,
+        editor.schema.marks.link
+      );
+      
+      if (linkRange) {
+        currentFrom = linkRange.from;
+        currentTo = linkRange.to;
+      }
     } else {
       setHref("");
     }
-    const { from, to } = editor.state.selection;
-    const selectedText = editor.state.doc.textBetween(from, to, " ");
+
+    setSelectionRange({ from: currentFrom, to: currentTo });
+    
+    const selectedText = editor.state.doc.textBetween(currentFrom, currentTo, " ");
     setText(selectedText || "");
     setPanelOpen(true);
   };
@@ -43,14 +69,29 @@ const LinkButton = () => {
     if (!editor) return;
 
     if (href) {
-      const { from, to } = editor.state.selection;
+      let finalHref = href.trim();
+      if (
+        finalHref &&
+        !/^https?:\/\//i.test(finalHref) &&
+        !finalHref.startsWith("mailto:") &&
+        !finalHref.startsWith("tel:") &&
+        !finalHref.startsWith("/") &&
+        !finalHref.startsWith("#")
+      ) {
+        finalHref = `https://${finalHref}`;
+      }
+
+      let currentChain = editor.chain().focus();
+      
+      if (selectionRange) {
+        currentChain = currentChain.setTextSelection(selectionRange);
+      }
+
+      const { from, to } = selectionRange || editor.state.selection;
       const currentSelectedText = editor.state.doc.textBetween(from, to, " ");
 
-      // If text changed, replace the selection with the new text.
       if (text && text !== currentSelectedText) {
-        editor
-          .chain()
-          .focus()
+        currentChain
           .extendMarkRange("link")
           .insertContent({
             type: "text",
@@ -58,31 +99,38 @@ const LinkButton = () => {
             marks: [
               {
                 type: "link",
-                attrs: { href: href, target: "_blank", class: "text-blue-500 underline" },
+                attrs: { href: finalHref, target: "_blank", class: "text-blue-500 underline" },
               },
             ],
           })
           .run();
       } else {
-        // If text hasn't changed, just apply the link mark to preserve existing formatting
-        editor
-          .chain()
-          .focus()
+        currentChain
           .extendMarkRange("link")
-          .setLink({ href: href, target: "_blank", class: "text-blue-500 underline" })
+          .setLink({ href: finalHref, target: "_blank", class: "text-blue-500 underline" })
           .run();
       }
     } else {
-      editor.chain().focus().unsetLink().run();
+      let currentChain = editor.chain().focus();
+      if (selectionRange) {
+        currentChain = currentChain.setTextSelection(selectionRange);
+      }
+      currentChain.extendMarkRange("link").unsetLink().run();
     }
 
     setPanelOpen(false);
+    setSelectionRange(null);
   };
 
   const removeLink = () => {
     if (!editor) return;
-    editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    let currentChain = editor.chain().focus();
+    if (selectionRange) {
+      currentChain = currentChain.setTextSelection(selectionRange);
+    }
+    currentChain.extendMarkRange("link").unsetLink().run();
     setPanelOpen(false);
+    setSelectionRange(null);
   };
 
   return (
@@ -90,10 +138,12 @@ const LinkButton = () => {
       <ToolbarButton
         Icon={Link2Icon}
         label="Link"
-        isActive={editor?.isActive("link")}
-        onClick={() => {
+        isActive={isLinkActive}
+        onClick={(e) => {
+          e.preventDefault();
           if (panelOpen) {
             setPanelOpen(false);
+            setSelectionRange(null);
           } else {
             onOpenPanel();
           }
@@ -101,7 +151,7 @@ const LinkButton = () => {
       />
 
       {panelOpen && (
-        <div className="absolute left-0 top-full z-50 mt-2 w-80 rounded-lg bg-white p-3 shadow-lg border border-gray-200">
+        <div className="absolute left-0 top-full z-50 mt-2 w-80 rounded-lg bg-[#f9fbfd] p-3 shadow-lg border border-gray-200">
           <div className="grid gap-4">
             <div className="space-y-1">
               <h4 className="font-medium leading-none text-sm">Link Details</h4>
@@ -115,6 +165,12 @@ const LinkButton = () => {
                   placeholder="https://example.com"
                   value={href}
                   onChange={(e) => setHref(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      applyLink();
+                    }
+                  }}
                 />
               </div>
               <div className="space-y-1">
@@ -124,10 +180,17 @@ const LinkButton = () => {
                   placeholder="Link Text"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      applyLink();
+                    }
+                  }}
                 />
               </div>
               <div className="flex justify-between gap-2 mt-2">
                 <Button
+                  type="button"
                   variant="ghost"
                   size="sm"
                   className="h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-50"
@@ -137,10 +200,21 @@ const LinkButton = () => {
                   <Trash className="h-4 w-4 mr-1" /> Remove
                 </Button>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="h-8" onClick={() => setPanelOpen(false)}>
+                  <Button 
+                    type="button"
+                    variant="" 
+                    size="sm" 
+                    className="h-8 hover:bg-[#e2e7eb]" 
+                    onClick={() => { setPanelOpen(false); setSelectionRange(null); }}
+                  >
                     <X className="h-4 w-4 mr-1" /> Cancel
                   </Button>
-                  <Button size="sm" className="h-8" onClick={applyLink}>
+                  <Button 
+                    type="button"
+                    size="sm" 
+                    className="h-8 hover:bg-[#e2e7eb]" 
+                    onClick={applyLink}
+                  >
                     <Check className="h-4 w-4 mr-1" /> Apply
                   </Button>
                 </div>

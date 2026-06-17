@@ -1,3 +1,4 @@
+import { TextSelection } from '@tiptap/pm/state';
 import Heading from "@tiptap/extension-heading";
 import Highlight from "@tiptap/extension-highlight";
 import Image from "@tiptap/extension-image";
@@ -69,12 +70,27 @@ const editorExtensions = [
     openOnClick: false,
     autoLink: true,
     defaultProtocol:"https"
-  })
+  }),
 ];
 
 export const editorConfig = {
   editorProps: {
     attributes: editorAttributes,
+    handleClick: (view, pos, event) => {
+      const target = event.target;
+      const element = target?.nodeType === 3 ? target.parentNode : target;
+      if (element?.closest && element.closest('a')) {
+        event.preventDefault();
+        
+        // Manually set selection so the cursor moves to the clicked link
+        const { tr } = view.state;
+        const selection = TextSelection.create(view.state.doc, pos);
+        view.dispatch(tr.setSelection(selection));
+        
+        return true; // Stop all further event handling (including redirects)
+      }
+      return false;
+    }
   },
   extensions: editorExtensions,
   content: "<h1>Hello World!</h1>",
