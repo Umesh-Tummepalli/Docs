@@ -22,6 +22,7 @@ import HighlightButton from "./toolbar/HighlightButton";
 import TextColorButton from "./toolbar/TextColorButton";
 import ToolbarButton from "./toolbar/ToolbarButton";
 import LinkButton from "./toolbar/LinkButton";
+import ImageButton from "./toolbar/ImageButton";
 const ToolBar = () => {
   const editor = useEditorContext();
   const [spellcheckEnabled, setSpellcheckEnabled] = useState(true);
@@ -160,6 +161,7 @@ const ToolBar = () => {
         <TextColorButton />
         <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
         <LinkButton/>
+        <ImageButton/>
         <div className="flex items-center">
           {sections[2]?.map((item) => (
             <ToolbarButton key={item.label} {...item} />
