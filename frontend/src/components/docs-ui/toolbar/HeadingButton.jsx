@@ -61,7 +61,7 @@ const HeadingButton = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="h-7 w-32 shrink-0 flex items-center justify-between rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm">
+        <button className="h-7 w-32 shrink-0 flex items-center justify-between rounded-md hover:bg-[#e2e7eb] px-1.5 mx-1 overflow-hidden text-sm transition-colors data-[state=open]:bg-[#d3e3fd] data-[state=open]:text-[#0b57d0] cursor-pointer">
           <span className="truncate">{currentLabel}</span>
           <ChevronDownIcon className="ml-2 size-4 shrink-0" />
         </button>
@@ -74,8 +74,8 @@ const HeadingButton = () => {
             <button
               key={label}
               className={cn(
-                "flex items-center gap-x-2 px-2 py-1 rounded-sm hover:bg-neutral-200/80 text-left",
-                active && "bg-neutral-200/80"
+                "flex items-center gap-x-2 px-2 py-1 rounded-md hover:bg-[#e2e7eb] text-left transition-colors cursor-pointer",
+                active && "bg-[#d3e3fd] text-[#0b57d0]"
               )}
               onClick={() => {
                 if (value === "paragraph") {

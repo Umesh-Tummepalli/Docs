@@ -65,23 +65,25 @@ const TextColorButton = () => {
   };
 
   return (
-    <div ref={wrapperRef} className="relative flex items-center ">
+    <div ref={wrapperRef} className="relative flex items-center">
       <button
-        variant="ghost"
-        size="sm"
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
         className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent hover:bg-[#e2e7eb]",
-          panelOpen && "bg-[#d3e3fd] text-[#0b57d0] "
+          "h-7 w-7 flex items-center justify-center rounded-md hover:bg-[#e2e7eb] mx-1 transition-colors relative cursor-pointer",
+          panelOpen && "bg-[#d3e3fd] text-[#0b57d0] hover:bg-[#d3e3fd]"
         )}
         onClick={() => {
           setPanelOpen((prev) => !prev);
           setShowCustomPicker(false);
         }}
+        title="Text color"
+        aria-label="Text color"
       >
-        <div className="relative flex items-center justify-center">
-          <span className="text-sm font-medium">A</span>
+        <div className="flex flex-col items-center justify-center">
+          <span className="text-sm font-bold leading-none">A</span>
           <div
-            className="absolute -bottom-1 left-0 right-0 h-[3px] rounded-full"
+            className="h-[3px] w-4 mt-0.5 rounded-sm"
             style={{
               backgroundColor: textColor || "#000",
             }}

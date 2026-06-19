@@ -4,7 +4,6 @@ import { useEditorState } from "@tiptap/react";
 import {
   Bold,
   Italic,
-  ListTodo,
   MessageSquarePlus,
   Printer,
   Redo2,
@@ -17,12 +16,15 @@ import {
 import { Separator } from "../ui/separator";
 import { useEditorContext } from "./context/EditorContext";
 import FontFamilyButton from "./toolbar/FontFamilyButton";
+import FontSizeButton from "./toolbar/FontSizeButton";
 import HeadingButton from "./toolbar/HeadingButton";
 import HighlightButton from "./toolbar/HighlightButton";
 import TextColorButton from "./toolbar/TextColorButton";
 import ToolbarButton from "./toolbar/ToolbarButton";
 import LinkButton from "./toolbar/LinkButton";
 import ImageButton from "./toolbar/ImageButton";
+import AlignButton from "./toolbar/AlignButton";
+import ListButton from "./toolbar/ListButton";
 const ToolBar = () => {
   const editor = useEditorContext();
   const [spellcheckEnabled, setSpellcheckEnabled] = useState(true);
@@ -43,7 +45,7 @@ const ToolBar = () => {
     editor.commands.focus();
   };
 
-  const { canUndo, canRedo, isBoldActive, isItalicActive, isUnderlineActive, isTodoActive } = useEditorState({
+  const { canUndo, canRedo, isBoldActive, isItalicActive, isUnderlineActive } = useEditorState({
     editor,
     selector: ({ editor: currentEditor }) => ({
       canUndo: currentEditor?.can().chain().focus().undo().run() ?? false,
@@ -51,7 +53,6 @@ const ToolBar = () => {
       isBoldActive: currentEditor?.isActive("bold") ?? false,
       isItalicActive: currentEditor?.isActive("italic") ?? false,
       isUnderlineActive: currentEditor?.isActive("underline") ?? false,
-      isTodoActive: currentEditor?.isActive("taskList") ?? false,
     }),
   });
 
@@ -122,14 +123,6 @@ const ToolBar = () => {
         },
       },
       {
-        label: "todo",
-        Icon: ListTodo,
-        onClick: () => {
-          editor?.chain().focus().toggleTaskList().run();
-        },
-        isActive: isTodoActive,
-      },
-      {
         label: "remove-formatting",
         Icon: RemoveFormattingIcon,
         onClick: () => {
@@ -155,7 +148,10 @@ const ToolBar = () => {
           ))}
           <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
         </div>
+        <AlignButton />
+        <ListButton />
         <FontFamilyButton />
+        <FontSizeButton />
         <HeadingButton />
         <HighlightButton />
         <TextColorButton />

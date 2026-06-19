@@ -1,26 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useEditorState } from "@tiptap/react";
-import { ChevronDownIcon, Highlighter } from "lucide-react";
+import { ChevronDownIcon, Highlighter, Check } from "lucide-react";
 import { SketchPicker } from "react-color";
 
 import { cn } from "@/lib/utils.js";
 import { useEditorContext } from "../context/EditorContext";
 
 const PRESET_COLORS = [
-  "#faf594",
-  "#f28b82",
-  "#fbbc04",
-  "#ccff90",
-  "#a7ffeb",
-  "#aecbfa",
-  "#d7aefb",
+  "#ffffff", // None/White
+  "#fbbc04", // Yellow
+  "#f28b82", // Red
+  "#ccff90", // Green
+  "#a7ffeb", // Cyan
+  "#aecbfa", // Blue
+  "#d7aefb", // Purple
 ];
 
 const HighlightButton = () => {
   const editor = useEditorContext();
   const [panelOpen, setPanelOpen] = useState(false);
-  const [color, setColor] = useState("#faf594");
+  const [color, setColor] = useState("#fbbc04"); 
   const wrapperRef = useRef(null);
 
   const { isHighlighted, highlightColor } = useEditorState({
@@ -32,7 +32,6 @@ const HighlightButton = () => {
   });
 
   const pickerColor = highlightColor || color;
-
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -64,66 +63,87 @@ const HighlightButton = () => {
   };
 
   return (
-    <div ref={wrapperRef} className="relative flex items-center">
-      <button
+    <div ref={wrapperRef} className="relative inline-flex items-center">
+      <div 
         className={cn(
-          "flex h-8 items-center justify-center rounded-l-md px-2 hover:bg-[#e2e7eb]",
-          isHighlighted && "bg-[#d3e3fd] text-[#0b57d0] hover:bg-[#d3e3fd]"
+          "flex items-center rounded-md h-7 mx-1 transition-colors",
+          (panelOpen || isHighlighted) ? "bg-[#d3e3fd] text-[#0b57d0]" : "hover:bg-[#e2e7eb] text-gray-700"
         )}
-        onClick={toggleHighlight}
       >
-        <div className="relative flex items-center justify-center">
-          <Highlighter size={16} />
+        <button
+          className="flex h-full flex-col items-center justify-center rounded-l-md px-1.5 pt-0.5 text-inherit transition-colors hover:bg-black/5 cursor-pointer"
+          onClick={toggleHighlight}
+          title="Highlight color"
+        >
+          <Highlighter size={16} strokeWidth={2} className="shrink-0" />
           <div
-            className="absolute -bottom-1 left-0 right-0 h-[3px] rounded-full"
+            className="mt-0.5 h-[3px] w-3.5 rounded-sm shrink-0"
             style={{
-              backgroundColor: pickerColor,
+              backgroundColor: pickerColor === "#ffffff" ? "transparent" : pickerColor,
+              border: pickerColor === "#ffffff" ? "1px solid currentColor" : "none"
             }}
           />
-        </div>
-      </button>
+        </button>
 
-      <button
-        className={cn(
-          "h-8 rounded-r-md px-1 hover:bg-[#e2e7eb]",
-          isHighlighted && " hover:bg-[#d3e3fd]",
-          panelOpen&&"bg-[#d3e3fd] "
-        )}
-        onClick={() => setPanelOpen((prev) => !prev)}
-      >
-        <ChevronDownIcon size={14} />
-      </button>
+        <button
+          className="flex h-full items-center justify-center rounded-r-md px-1 text-inherit transition-colors hover:bg-black/5 cursor-pointer"
+          onClick={() => setPanelOpen((prev) => !prev)}
+          title="Highlight color options"
+        >
+          <ChevronDownIcon size={14} strokeWidth={2.5} className="shrink-0" />
+        </button>
+      </div>
 
       {panelOpen && (
-        <div className="absolute left-0 top-full z-50 mt-2 rounded-lg  bg-white p-3 shadow-lg">
+        <div className="absolute left-0 top-full z-50 mt-1 w-[220px] rounded-md border border-gray-200 bg-white p-3 shadow-lg">
           <div className="mb-3">
-            <p className="mb-2 text-xs text-gray-500">Presets</p>
-
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {PRESET_COLORS.map((preset) => (
                 <button
                   key={preset}
-                  className="h-6 w-6 rounded-full shadow-2xs transition-transform hover:scale-110"
+                  className={cn(
+                    "relative flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 transition-transform hover:scale-110",
+                    pickerColor === preset && "ring-2 ring-blue-400 ring-offset-1"
+                  )}
                   style={{
                     backgroundColor: preset,
                   }}
                   onClick={() => {
                     setColor(preset);
-                    applyHighlight(preset);
+                    if (preset === "#ffffff") {
+                      editor?.chain().focus().unsetHighlight().run();
+                    } else {
+                      applyHighlight(preset);
+                    }
+                    setPanelOpen(false);
                   }}
-                />
+                  title={preset === "#ffffff" ? "None" : preset}
+                >
+                  {pickerColor === preset && preset !== "#ffffff" && (
+                    <Check size={12} className="text-black/60" strokeWidth={3} />
+                  )}
+                  {preset === "#ffffff" && (
+                    <div className="h-0.5 w-6 rotate-45 bg-red-500 absolute" /> 
+                  )}
+                </button>
               ))}
             </div>
           </div>
 
-          <SketchPicker
-            color={pickerColor}
-            onChangeComplete={(c) => {
-              setColor(c.hex);
-              applyHighlight(c.hex);
-            }}
-          />
-
+          <div className="border-t border-gray-100 pt-3">
+            <p className="mb-2 text-xs font-medium text-gray-500">Custom</p>
+            <div className="[&_.sketch-picker]:!box-border [&_.sketch-picker]:!w-full [&_.sketch-picker]:!rounded-md [&_.sketch-picker]:!border-0 [&_.sketch-picker]:!shadow-none">
+              <SketchPicker
+                color={pickerColor}
+                onChangeComplete={(c) => {
+                  setColor(c.hex);
+                  applyHighlight(c.hex);
+                }}
+                presetColors={[]} 
+                disableAlpha
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
