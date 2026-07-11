@@ -1,65 +1,38 @@
-import { TextSelection } from '@tiptap/pm/state';
 import Heading from "@tiptap/extension-heading";
 import Highlight from "@tiptap/extension-highlight";
 import Image from "@tiptap/extension-image";
+import Link from "@tiptap/extension-link";
+import { TableKit } from "@tiptap/extension-table";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
-import { TableKit } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
-import { Color, FontFamily, TextStyle,FontSize } from "@tiptap/extension-text-style";
+import TextAlign from "@tiptap/extension-text-align";
+import {
+  Color,
+  FontFamily,
+  FontSize,
+  TextStyle,
+} from "@tiptap/extension-text-style";
 import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import Underline from "@tiptap/extension-underline";
+import { TextSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
-import Link from '@tiptap/extension-link'
-import TextAlign from '@tiptap/extension-text-align'
-import BulletList from '@tiptap/extension-bullet-list';
-import OrderedList from '@tiptap/extension-ordered-list';
 import {
   Figcaption,
   Figure,
   ImageResize,
 } from "tiptap-extension-resize-image";
 
-const CustomBulletList = BulletList.extend({
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      listStyleType: {
-        default: 'disc',
-        parseHTML: element => element.style.listStyleType || 'disc',
-        renderHTML: attributes => {
-          if (!attributes.listStyleType || attributes.listStyleType === 'disc') {
-            return {};
-          }
-          return {
-            style: `list-style-type: ${attributes.listStyleType}`,
-          };
-        },
-      },
-    };
-  },
-});
+import {
+  CustomBulletList,
+  CustomOrderedList,
+  LineHeight
+} from "./extensions/customListExtensions";
 
-const CustomOrderedList = OrderedList.extend({
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      listStyleType: {
-        default: 'decimal',
-        parseHTML: element => element.style.listStyleType || 'decimal',
-        renderHTML: attributes => {
-          if (!attributes.listStyleType || attributes.listStyleType === 'decimal') {
-            return {};
-          }
-          return {
-            style: `list-style-type: ${attributes.listStyleType}`,
-          };
-        },
-      },
-    };
-  },
-});
+
+
+
 
 const editorAttributes = {
   style: "padding-left: 56px; padding-right: 56px",
@@ -117,13 +90,17 @@ const editorExtensions = [
   Link.configure({
     openOnClick: false,
     autoLink: true,
-    defaultProtocol:"https"
+    defaultProtocol: "https",
   }),
   TextAlign.configure({
-    types: ['heading', 'paragraph'],
-    alignments:['left', 'center', 'right', 'justify'],
-    defaultAlignment: 'left',
-  })
+    types: ["heading", "paragraph"],
+    alignments: ["left", "center", "right", "justify"],
+    defaultAlignment: "left",
+  }),
+  LineHeight.configure({
+    types: ['paragraph', 'heading'], 
+    defaultLineHeight: '1.5',
+  }),
 ];
 
 export const editorConfig = {
@@ -132,18 +109,19 @@ export const editorConfig = {
     handleClick: (view, pos, event) => {
       const target = event.target;
       const element = target?.nodeType === 3 ? target.parentNode : target;
-      if (element?.closest && element.closest('a')) {
+
+      if (element?.closest && element.closest("a")) {
         event.preventDefault();
-        
-        // Manually set selection so the cursor moves to the clicked link
+
         const { tr } = view.state;
         const selection = TextSelection.create(view.state.doc, pos);
         view.dispatch(tr.setSelection(selection));
-        
-        return true; // Stop all further event handling (including redirects)
+
+        return true;
       }
+
       return false;
-    }
+    },
   },
   extensions: editorExtensions,
   content: "<h1>Hello World!</h1>",

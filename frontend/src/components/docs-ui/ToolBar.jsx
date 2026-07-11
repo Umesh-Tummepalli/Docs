@@ -25,6 +25,7 @@ import LinkButton from "./toolbar/LinkButton";
 import ImageButton from "./toolbar/ImageButton";
 import AlignButton from "./toolbar/AlignButton";
 import ListButton from "./toolbar/ListButton";
+import LineHeightButton from "./toolbar/LineHeightButton";
 const ToolBar = () => {
   const editor = useEditorContext();
   const [spellcheckEnabled, setSpellcheckEnabled] = useState(true);
@@ -150,6 +151,7 @@ const ToolBar = () => {
         </div>
         <AlignButton />
         <ListButton />
+        <LineHeightButton />
         <FontFamilyButton />
         <FontSizeButton />
         <HeadingButton />
