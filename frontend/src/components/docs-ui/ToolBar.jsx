@@ -134,7 +134,7 @@ const ToolBar = () => {
   ];
 
   return (
-    <div className="sticky top-20 z-40">
+    <div className="relative z-10 pb-2">
       <div className="mx-auto flex w-fit max-w-full items-center rounded-full bg-[#f9fbfd] p-1 shadow-sm ring-1 ring-slate-200">
         <div className="flex items-center">
           {sections[0]?.map((item) => (

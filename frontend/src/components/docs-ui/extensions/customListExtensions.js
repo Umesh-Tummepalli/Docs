@@ -1,6 +1,6 @@
 import BulletList from "@tiptap/extension-bullet-list";
 import OrderedList from "@tiptap/extension-ordered-list";
-import { Extension } from "@tiptap/core";
+import { Extension } from '@tiptap/core'
 
 export const CustomBulletList = BulletList.extend({
   addAttributes() {
@@ -44,16 +44,19 @@ export const CustomOrderedList = OrderedList.extend({
   },
 });
 
-export const LineHeight = Extension.create({
-  name: "lineHeight",
 
+export const LineHeight = Extension.create({
+  name: 'lineHeight',
+
+  // 1. Define the types of nodes this extension applies to
   addOptions() {
     return {
-      types: ["paragraph", "heading"],
-      defaultLineHeight: null,
-    };
+      types: ['paragraph', 'heading'],
+      defaultLineHeight: 'normal',
+    }
   },
 
+  // 2. Extend the global schema attributes for those nodes
   addGlobalAttributes() {
     return [
       {
@@ -61,39 +64,34 @@ export const LineHeight = Extension.create({
         attributes: {
           lineHeight: {
             default: this.options.defaultLineHeight,
-            parseHTML: (element) =>
-              element.style.lineHeight || this.options.defaultLineHeight,
-            renderHTML: (attributes) => {
-              if (!attributes.lineHeight) {
-                return {};
+            // Parse the line-height property from HTML
+            parseHTML: element => element.style.lineHeight || this.options.defaultLineHeight,
+            // Apply the line-height property to the HTML render output
+            renderHTML: attributes => {
+              if (!attributes.lineHeight || attributes.lineHeight === this.options.defaultLineHeight) {
+                return {}
               }
-
-              return {
-                style: `line-height: ${attributes.lineHeight}`,
-              };
+              return { style: `line-height: ${attributes.lineHeight}` }
             },
           },
         },
       },
-    ];
+    ]
   },
 
+  // 3. Add custom commands to set/unset the line-height
   addCommands() {
     return {
-      setLineHeight:
-        (lineHeight) =>
-        ({ commands }) => {
-          return this.options.types
-            .map((type) => commands.updateAttributes(type, { lineHeight }))
-            .some((response) => response);
-        },
-      unsetLineHeight:
-        () =>
-        ({ commands }) => {
-          return this.options.types
-            .map((type) => commands.resetAttributes(type, "lineHeight"))
-            .some((response) => response);
-        },
-    };
+      setLineHeight: (value) => ({ commands }) => {
+        return this.options.types.every(type =>
+          commands.updateAttributes(type, { lineHeight: value })
+        )
+      },
+      unsetLineHeight: () => ({ commands }) => {
+        return this.options.types.every(type =>
+          commands.updateAttributes(type, { lineHeight: this.options.defaultLineHeight })
+        )
+      },
+    }
   },
-});
+})
