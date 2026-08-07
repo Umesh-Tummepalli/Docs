@@ -357,7 +357,7 @@ const LinkButton = () => {
                   <Button 
                     type="button"
                     size="sm" 
-                    className="h-9 px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="h-9 px-5 bg-[#0b57d0] hover:bg-[#0b57d0]/90 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={applyLink}
                     disabled={!href.trim()}
                   >

@@ -75,7 +75,7 @@ const DocsLanding = () => {
           
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-slate-900 leading-[1.1]">
             Your best work, <br className="hidden sm:block" />
-            <span className="bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#0b57d0] to-violet-600 bg-clip-text text-transparent">
               together in one place.
             </span>
           </h1>
@@ -88,7 +88,7 @@ const DocsLanding = () => {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
             <Button 
               size="lg" 
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white text-base h-12 px-8 shadow-lg shadow-blue-200 hover:shadow-xl hover:shadow-blue-200 transition-all duration-300 group"
+              className="w-full sm:w-auto bg-[#0b57d0] hover:bg-[#0b57d0]/90 text-white text-base h-12 px-8 shadow-sm transition-all duration-300 group"
             >
               Go to WriteFlow
               <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
@@ -155,7 +155,7 @@ const DocsLanding = () => {
                 </button>
               </div>
               <div className="flex items-center gap-1.5">
-                <button className="p-1.5 bg-blue-50 text-blue-600 rounded transition-colors" aria-label="Align left">
+                <button className="p-1.5 bg-blue-50 text-[#0b57d0] rounded transition-colors" aria-label="Align left">
                   <AlignLeft className="w-4 h-4" />
                 </button>
                 <button className="p-1.5 hover:bg-slate-100 rounded transition-colors" aria-label="Align center">
@@ -238,7 +238,7 @@ const DocsLanding = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="px-6 py-20 bg-gradient-to-r from-blue-600 to-violet-600">
+      <section className="px-6 py-20 bg-gradient-to-r from-[#0b57d0] to-violet-600">
         <div className="max-w-4xl mx-auto text-center space-y-6">
           <h2 className="text-3xl md:text-4xl font-bold text-white">
             Ready to write together?
@@ -248,7 +248,7 @@ const DocsLanding = () => {
           </p>
           <Button 
             size="lg" 
-            className="bg-white text-blue-600 hover:bg-blue-50 text-base h-12 px-8 shadow-lg group"
+            className="bg-white text-[#0b57d0] hover:bg-blue-50 text-base h-12 px-8 shadow-sm group"
           >
             Get started for free
             <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />

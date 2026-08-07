@@ -410,7 +410,7 @@ const ImageButton = () => {
                       <Button
                         onClick={handleUrlSubmit}
                         disabled={!imageUrl.trim() || !!error}
-                        className="h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="h-9 bg-[#0b57d0] hover:bg-[#0b57d0]/90 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Check className="h-4 w-4 mr-1.5" />
                         Insert Image

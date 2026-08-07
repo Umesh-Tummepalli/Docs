@@ -133,7 +133,10 @@ const Ruler = () => {
   };
 
   return (
-    <div className="h-7 border-b border-gray-300 bg-[#f9fbfd] select-none">
+    <div
+      className="z-40 h-7 border-b border-gray-300 bg-[#f9fbfd] select-none print:hidden"
+      style={{ position: "sticky", top: "72px" }}
+    >
       <div
         ref={rulerRef}
         className="relative mx-auto h-full"

@@ -4,6 +4,9 @@ import LandingPage from "../components/LandingPage.jsx";
 import Home from "../components/docs-ui/Home.jsx"
 import Document from "../components/docs-ui/Document.jsx";
 import NotFound from "../components/NotFound.jsx"
+import Login from "../components/auth/Login.jsx";
+import Register from "../components/auth/Register.jsx";
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -12,6 +15,14 @@ const router = createBrowserRouter([
       {
         path: "/",
         element: <LandingPage/>,
+      },
+      {
+        path: "/login",
+        element: <Login />,
+      },
+      {
+        path: "/register",
+        element: <Register />,
       },
       {
         path: "/doc",

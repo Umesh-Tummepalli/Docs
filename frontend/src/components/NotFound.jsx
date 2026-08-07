@@ -59,7 +59,7 @@ const NotFound = () => {
   const colorVariants = {
     blue: {
       bg: "bg-blue-50",
-      text: "text-blue-600",
+      text: "text-[#0b57d0]",
       hover: "group-hover:bg-blue-100",
       shadow: "group-hover:shadow-blue-200/50"
     },
@@ -89,7 +89,7 @@ const NotFound = () => {
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Floating documents */}
         <div className="absolute top-20 left-10 opacity-10 animate-float-slow">
-          <FileText className="w-32 h-32 text-blue-600 transform -rotate-12" />
+          <FileText className="w-32 h-32 text-[#0b57d0] transform -rotate-12" />
         </div>
         <div className="absolute bottom-32 right-10 opacity-10 animate-float-slower">
           <FileText className="w-24 h-24 text-violet-600 transform rotate-12" />
@@ -134,7 +134,7 @@ const NotFound = () => {
           {/* 404 Animation */}
           <div className="relative mb-8">
             <div className="text-[180px] md:text-[220px] font-black leading-none select-none">
-              <span className="bg-gradient-to-r from-blue-600 via-violet-600 to-blue-600 bg-clip-text text-transparent animate-gradient">
+              <span className="bg-gradient-to-r from-[#0b57d0] via-violet-600 to-[#0b57d0] bg-clip-text text-transparent animate-gradient">
                 4
               </span>
               <span className="relative inline-block mx-2">
@@ -143,10 +143,10 @@ const NotFound = () => {
                 </span>
                 {/* Animated document in the zero */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <FileText className="w-20 h-20 md:w-24 md:h-24 text-blue-600 animate-bounce-subtle" />
+                  <FileText className="w-20 h-20 md:w-24 md:h-24 text-[#0b57d0] animate-bounce-subtle" />
                 </div>
               </span>
-              <span className="bg-gradient-to-r from-violet-600 via-blue-600 to-violet-600 bg-clip-text text-transparent animate-gradient-reverse">
+              <span className="bg-gradient-to-r from-violet-600 via-[#0b57d0] to-violet-600 bg-clip-text text-transparent animate-gradient-reverse">
                 4
               </span>
             </div>
@@ -170,7 +170,7 @@ const NotFound = () => {
               <Link to="/">
             <Button
               size="lg"
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white h-12 px-8 shadow-lg shadow-blue-200 hover:shadow-xl hover:shadow-blue-200 transition-all duration-300 group"
+              className="w-full sm:w-auto bg-[#0b57d0] hover:bg-[#0b57d0]/90 text-white h-12 px-8 shadow-sm transition-all duration-300 group"
               onMouseEnter={() => setIsHovering(true)}
               onMouseLeave={() => setIsHovering(false)}
             >
@@ -206,7 +206,7 @@ const NotFound = () => {
                   <div className={`mb-3 p-2.5 ${colors.bg} rounded-lg inline-flex ring-1 ring-slate-100 ${colors.hover} transition-colors duration-300`}>
                     <Icon className={`w-5 h-5 ${colors.text}`} />
                   </div>
-                  <h3 className="font-semibold text-slate-900 mb-1 group-hover:text-blue-600 transition-colors">
+                  <h3 className="font-semibold text-slate-900 mb-1 group-hover:text-[#0b57d0] transition-colors">
                     {link.title}
                   </h3>
                   <p className="text-sm text-slate-500 leading-relaxed">
@@ -221,7 +221,7 @@ const NotFound = () => {
         {/* Footer note */}
         <div className="mt-16 text-center">
           <p className="text-sm text-slate-400">
-            Still lost? <a href="/contact" className="text-blue-600 hover:text-blue-700 font-medium underline underline-offset-2">Contact our support team</a>
+            Still lost? <a href="/contact" className="text-[#0b57d0] hover:text-[#0b57d0]/90 font-medium underline underline-offset-2">Contact our support team</a>
           </p>
         </div>
       </div>

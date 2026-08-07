@@ -13,10 +13,8 @@ export default function Document() {
       <h1>Document {docId}</h1>
       <div className="min-h-screen">
         <EditorContext.Provider value={editor}>
-          <div className="sticky top-[73px] z-40 bg-[#f9fbfd] pt-2 print:hidden">
-            <ToolBar/>
-            <Ruler/>
-          </div>
+          <ToolBar/>
+          <Ruler/>
           <Editor/>
         </EditorContext.Provider>
       </div>
