@@ -1,10 +1,10 @@
-import dotenv from "dotenv";
+import 'dotenv/config';
 import express from "express";
 import { connectMongo } from "./config/mongo.js";
 import auth from "./routes/authentication.js"
 import cors from "cors";
 
-dotenv.config();
+
 
 await connectMongo();
 

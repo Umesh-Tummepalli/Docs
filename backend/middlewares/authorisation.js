@@ -13,4 +13,4 @@ const authorisation = async (req, res, next) => {
   next();
 };
 
-module.exports = authorisation;
+export default authorisation;

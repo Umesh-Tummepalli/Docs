@@ -12,8 +12,21 @@ const UserSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    default: null,
   },
+  authProviders: [
+    {
+      provider: {
+        type: String,
+        enum: ["google", "microsoft", 'local'],
+        default: 'local',
+      },
+      providerId: {
+        type: String,
+        default: null,
+      },
+    },
+  ],
 })
 
 export default mongoose.model("User", UserSchema);
