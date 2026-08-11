@@ -3,12 +3,13 @@ import express from "express";
 import { connectMongo } from "./config/mongo.js";
 import auth from "./routes/authentication.js"
 import cors from "cors";
-
-
+import documentRoutes from "./routes/document.js"
+import cookieParser from 'cookie-parser';
 
 await connectMongo();
 
 const app = express();
+app.use(cookieParser());
 
 app.use(cors({
   origin: "http://localhost:5173",
@@ -24,6 +25,7 @@ app.get('/',(req,res)=>{
 
 // Routes
 app.use('/auth', auth);
+app.use('/documents', documentRoutes);
 
 
 // page not found;

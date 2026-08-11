@@ -30,9 +30,11 @@ import {
   LineHeight
 } from "./extensions/customListExtensions";
 
+import Collaboration from '@tiptap/extension-collaboration'
+import * as Y from 'yjs'
 
 
-
+// const doc = new Y.Doc()
 
 const editorAttributes = {
   style: "padding-left: 56px; padding-right: 56px",
@@ -101,6 +103,9 @@ const editorExtensions = [
     types: ['paragraph', 'heading'], 
     defaultLineHeight: '1.5',
   }),
+  // Collaboration.configure({
+  //   document: doc,
+  // }),
 ];
 
 export const editorConfig = {
