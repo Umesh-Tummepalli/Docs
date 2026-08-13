@@ -146,3 +146,5 @@ export const handleGoogleAuth = async (req, res) => {
     return res.status(500).json({ message: "Failed to authenticate with Google", success: false });
   }
 };
+
+// ToDo : Microsoft oAuth2

@@ -129,5 +129,5 @@ export const editorConfig = {
     },
   },
   extensions: editorExtensions,
-  content: "<h1>Hello World!</h1>",
+  content: "<h1>Loading ....</h1>",
 };

@@ -1,12 +1,11 @@
-import React from 'react'
-import axios from 'axios'
+import api from '@/lib/api'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 const Home = () => {
   const navigate = useNavigate()
   const handleCreateNewDocument =async () => {
     try {
-      const response = await axios.post(`${import.meta.env.VITE_BACKEND_API_URL}/documents/new`, {},{withCredentials: true});
+      const response = await api.post('/documents/new', {});
       navigate(`/doc/${response.data.documentId}`);
     } catch (error) {
       if(error?.response?.status===401) {
@@ -19,15 +18,15 @@ const Home = () => {
       }
     }
   }
-  return (    
+  return (
     <div className="min-h-screen bg-gray-50">
       <div className="flex flex-col items-center justify-center p-5">
         <h2 className="mb-5 text-2xl font-normal text-gray-600">
           Start a new document
         </h2>
-        
+
         <div className="flex justify-center w-full">
-          <button 
+          <button
             className="flex flex-col items-center justify-center w-44 h-44 border border-gray-300 rounded-lg cursor-pointer bg-white transition-shadow duration-200 hover:shadow-[0_1px_2px_0_rgba(60,64,67,.3),0_1px_3px_1px_rgba(60,64,67,.15)]"
             onClick={handleCreateNewDocument}
           >

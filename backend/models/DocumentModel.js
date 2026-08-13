@@ -16,14 +16,6 @@ const DocumentSchema = new mongoose.Schema({
   assetList: {
     type: [mongoose.Schema.Types.Mixed],
   },
-  accessList: {
-    type: [mongoose.Schema.Types.ObjectId],
-    default: [],
-  },
-  accessRequests: {
-    type: [mongoose.Schema.Types.ObjectId],
-    default: [],
-  },
 },{ timestamps: true });
 
 export default mongoose.model('Document', DocumentSchema);

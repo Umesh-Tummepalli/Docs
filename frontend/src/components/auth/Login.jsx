@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, ArrowRight } from 'lucide-react';
 import { toast } from 'react-toastify';
-import axios from 'axios';
+import api from '@/lib/api';
 import GoogleAuth from './GoogleAuth';
 import MicrosoftAuth from './MicrosoftAuth';
 
@@ -22,10 +22,10 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${import.meta.env.VITE_BACKEND_API_URL}/auth/login`, {
+      const response = await api.post('/auth/login', {
         email,
         password,
-      }, { withCredentials: true });
+      });
 
       if (response.data.success) {
         toast.success(response.data.message);

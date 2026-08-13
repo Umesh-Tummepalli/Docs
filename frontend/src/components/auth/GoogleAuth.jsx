@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useGoogleLogin } from '@react-oauth/google';
-import axios from 'axios';
+import api from '@/lib/api';
 import { toast } from "react-toastify";
 import { useNavigate } from 'react-router-dom';
 
@@ -10,7 +10,7 @@ const GoogleAuth = () => {
     flow: 'auth-code',
     onSuccess: async (tokenResponse) => {
       try {
-        const data = await axios.post(`${import.meta.env.VITE_BACKEND_API_URL}/auth/google`, { code: tokenResponse.code }, { withCredentials: true });
+        await api.post('/auth/google', { code: tokenResponse.code });
         toast.success("Authentication successful");
         navigate('/doc');
       }

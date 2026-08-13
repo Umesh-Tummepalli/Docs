@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, ArrowRight } from 'lucide-react';
 import { toast } from 'react-toastify';
-import axios from 'axios';
+import api from '@/lib/api';
 import GoogleAuth from './GoogleAuth';
 import MicrosoftAuth from './MicrosoftAuth';
 
@@ -28,8 +28,7 @@ const Register = () => {
 
     setIsLoading(true);
     try {
-      console.log(import.meta.env.VITE_BACKEND_API_URL);
-      const response = await axios.post(`${import.meta.env.VITE_BACKEND_API_URL}/auth/register`, { username, email, password }, { withCredentials: true });
+      const response = await api.post('/auth/register', { username, email, password });
       toast.success(response.data.message || 'Registration successful!');
       navigate('/login');
     } catch (error) {
@@ -42,9 +41,9 @@ const Register = () => {
     }
   };
 
- 
 
- 
+
+
 
   return (
     <div className="min-h-[calc(100vh-73px)] flex items-center justify-center bg-gradient-to-b from-white to-slate-50/50 p-6 font-sans">
