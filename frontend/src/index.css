@@ -215,3 +215,17 @@
   size: portrait;
   margin: 0;
 }
+
+/* Custom Page Extension Styling */
+.Page {
+  margin-bottom: 2rem !important;
+}
+
+.PageContent {
+  padding-left: var(--page-margin-left, 48px) !important;
+  padding-right: var(--page-margin-right, 48px) !important;
+}
+
+.node-page{
+  margin-bottom: 20px !important; 
+}

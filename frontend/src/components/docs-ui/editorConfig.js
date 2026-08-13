@@ -29,6 +29,8 @@ import {
   CustomOrderedList,
   LineHeight
 } from "./extensions/customListExtensions";
+import { PageExtension, PageDocument } from '@adalat-ai/page-extension';
+
 
 import Collaboration from '@tiptap/extension-collaboration'
 import * as Y from 'yjs'
@@ -37,9 +39,7 @@ import * as Y from 'yjs'
 // const doc = new Y.Doc()
 
 const editorAttributes = {
-  style: "padding-left: 56px; padding-right: 56px",
-  class:
-    "focus:outline-none print:border-0 bg-white flex flex-col min-h-[1123px] w-[794px] shadow-2xl border border-[#c4c7c5] rounded pt-10",
+  class: "focus:outline-none print:border-0",
   spellcheck: "true",
   lang: "en-US",
   autocorrect: "on",
@@ -103,6 +103,36 @@ const editorExtensions = [
     types: ['paragraph', 'heading'], 
     defaultLineHeight: '1.5',
   }),
+  PageDocument,
+  PageExtension.configure({
+       // Required: Page dimensions
+       bodyHeight: 1123, // A4 height at 96 DPI (29.7cm = 11.69in × 96 DPI)
+       bodyWidth: 794,   // A4 width at 96 DPI (21.0cm = 8.27in × 96 DPI)
+       
+       // Optional: Page layout settings
+       pageLayout: {
+         margins: {
+           top: { unit: 'INCHES', value: 0.75 },
+           bottom: { unit: 'INCHES', value: 0.75 },
+           left: { unit: 'INCHES', value: 0.5 },
+           right: { unit: 'INCHES', value: 0.5 }
+         },
+         paragraphSpacing: {
+           before: { unit: 'PTS', value: 6 },
+           after: { unit: 'PTS', value: 6 }
+         }
+       },
+       
+       // Optional: Page numbering
+       pageNumber: {
+         show: true,
+         showCount: true,
+         showOnFirstPage: false,
+         position: 'bottom',
+         alignment: 'center'
+       },
+       
+     }),
   // Collaboration.configure({
   //   document: doc,
   // }),
