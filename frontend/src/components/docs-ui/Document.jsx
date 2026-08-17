@@ -1,34 +1,79 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState,useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { useEditor } from "@tiptap/react";
 import api from "@/lib/api";
 import Editor from "./Editior";
 import ToolBar from "./ToolBar";
 import Ruler from "./Ruler";
 import EditorContext from "./context/EditorContext";
-import { editorConfig } from "./editorConfig";
 import AccessDenied from "./AccessDenied";
 import Loading from "./Loading";
 import DocumentNotFound from "./DocumentNotFound";
 import AccessPanel from "./AccessPanel";
+import useYDoc, { YDocProvider } from "./context/YDocContext";
+import { useEditor } from "@tiptap/react";
+import { editorConfig } from "./editorConfig";
+import * as Y from "yjs";
+
+const EditorView = ({ docData, docId }) => {
+  const { yDoc, metadata } = useYDoc();
+  const timer = useRef(null);
+  const [hydrated, setHydrated] = useState(false);
+  yDoc.on('update', () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      const response = api.post(`/documents/${docId}/save`, Y.encodeStateAsUpdate(yDoc), {
+        headers: {
+        "Content-Type": "application/octet-stream",
+        },
+      });
+      console.log(response);
+
+      toast.success("Document saved");
+    },5000);
+  });
+  useEffect(() => {
+    if (!docData) return;
+    const bytes = new Uint8Array(docData);
+    Y.applyUpdate(yDoc, bytes);
+    setHydrated(true);
+  }, [docData,yDoc]);
+
+  const editor = useEditor(
+    editorConfig(yDoc),
+    [yDoc]
+  );
+
+  if (!hydrated || !editor) {
+    return <Loading />;
+  }
+
+  return (
+    <div className="min-h-screen mt-4">
+      <EditorContext.Provider value={editor}>
+        <ToolBar />
+        <Ruler />
+        <Editor />
+      </EditorContext.Provider>
+    </div>
+  );
+};
 
 export default function Document() {
   const { docId } = useParams();
-  const editor = useEditor(editorConfig);
   const navigate = useNavigate();
   const [status, setStatus] = useState("loading");
   const [docData, setDocData] = useState(null);
-
+  
   const fetchContent = async () => {
     setStatus("loading");
     try {
       const response = await api.get(`/documents/${docId}`);
-      editor.commands.setContent(response?.data?.document?.content || "");
-      setDocData(response?.data?.document);
+      setDocData(response?.data?.document?.content);
       setStatus("ready");
     }
     catch (error) {
+      console.error(error.response);
       const statusCode = error.response?.status;
 
       if (statusCode === 401) {
@@ -49,16 +94,16 @@ export default function Document() {
       }
       console.error(error);
     }
+   
   };
 
   useEffect(() => {
-    if (!editor) return;
     fetchContent();
-  }, [docId, editor, navigate]);
+  }, [docId, navigate]);
 
   let documentView;
 
-  if (status === "loading" || !editor) {
+  if (status === "loading") {
     documentView = <Loading />;
   }
   else if (status === "access-denied") {
@@ -81,13 +126,9 @@ export default function Document() {
             />
           )}
         </div>
-        <div className="min-h-screen mt-4">
-          <EditorContext.Provider value={editor}>
-            <ToolBar />
-            <Ruler />
-            <Editor />
-          </EditorContext.Provider>
-        </div>
+        <YDocProvider>
+          <EditorView docData={docData} docId={docId} />
+        </YDocProvider>
       </div>
     );
   }

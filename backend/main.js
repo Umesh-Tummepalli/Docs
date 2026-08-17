@@ -16,10 +16,16 @@ app.use(cors({
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE"],
 }))
-
+app.use(express.raw({
+  type: 'application/octet-stream',
+  limit: '16mb',
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.get('/',(req,res)=>{
+
+
+
+app.get('/', (req, res) => {
     res.send("<h1>Server is working 👍</h1>");
 })
 

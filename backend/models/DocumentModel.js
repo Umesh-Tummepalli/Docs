@@ -6,9 +6,10 @@ const DocumentSchema = new mongoose.Schema({
     default : 'New Document'
   },
   content: {
-    type: Object,
-    default: {},
+    type: Buffer,
+    default: Buffer.alloc(0),
   },
+
   ownerId: {
     type: mongoose.Schema.Types.ObjectId,
     required: true,

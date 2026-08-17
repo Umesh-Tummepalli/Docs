@@ -1,6 +1,6 @@
 import express from 'express';
 import {basicAuthorisation,documentAuthorisation} from "../middlewares/authorisation.js"
-import { createDocument, getDocument, getDocumentAccess, getUsersDocuments, approveAccessRequest, denyAccessRequest } from '../controller/document.js';
+import { createDocument, getDocument, getDocumentAccess, getUsersDocuments, approveAccessRequest, denyAccessRequest, saveDocument } from '../controller/document.js';
 
 
 const router = express.Router();
@@ -14,6 +14,8 @@ router.post('/:documentId/access-request', basicAuthorisation, getDocumentAccess
 router.post('/:documentId/access-request/approve', basicAuthorisation, approveAccessRequest);
 
 router.post('/:documentId/access-request/deny', basicAuthorisation, denyAccessRequest);
+
+router.post('/:documentId/save', basicAuthorisation, saveDocument);
 
 router.get('/', basicAuthorisation, getUsersDocuments);
 

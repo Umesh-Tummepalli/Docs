@@ -17,21 +17,11 @@ const Ruler = () => {
   const [margins, setMargins] = useState({ left: 48, right: 48 });
   const marginsRef = useRef({ left: 48, right: 48 });
 
-  // Initialize margins from the extension on load
+  // Initialize default margins
   useEffect(() => {
-    if (!editor) return;
-    const pageExtension = editor.extensionManager.extensions.find(e => e.name === 'PageExtension');
-    if (pageExtension && pageExtension.options?.pageLayout?.margins) {
-      const leftInches = pageExtension.options.pageLayout.margins.left?.value || 0.5;
-      const rightInches = pageExtension.options.pageLayout.margins.right?.value || 0.5;
-      const leftPx = leftInches * 96;
-      const rightPx = rightInches * 96;
-      setMargins({ left: leftPx, right: rightPx });
-      marginsRef.current = { left: leftPx, right: rightPx };
-      document.documentElement.style.setProperty('--page-margin-left', `${leftPx}px`);
-      document.documentElement.style.setProperty('--page-margin-right', `${rightPx}px`);
-    }
-  }, [editor]);
+    document.documentElement.style.setProperty('--page-margin-left', `${margins.left}px`);
+    document.documentElement.style.setProperty('--page-margin-right', `${margins.right}px`);
+  }, []);
 
   const updateMargin = useCallback((side, clientX) => {
     const ruler = rulerRef.current;
@@ -61,30 +51,8 @@ const Ruler = () => {
   }, []);
 
   const applyMarginsToEditor = useCallback(() => {
-    if (!editor) return;
-    const pageExtension = editor.extensionManager.extensions.find(e => e.name === 'PageExtension');
-    if (pageExtension) {
-      const currentOptions = pageExtension.options;
-      const currentMargins = currentOptions.pageLayout?.margins || {
-        top: { unit: 'INCHES', value: 0.75 },
-        bottom: { unit: 'INCHES', value: 0.75 }
-      };
-
-      pageExtension.options = {
-        ...currentOptions,
-        pageLayout: {
-          ...currentOptions.pageLayout,
-          margins: {
-            ...currentMargins,
-            left: { unit: 'INCHES', value: marginsRef.current.left / 96 },
-            right: { unit: 'INCHES', value: marginsRef.current.right / 96 }
-          }
-        }
-      };
-      
-      editor.commands.recomputeComputedHtml();
-    }
-  }, [editor]);
+    // Margins are now applied via CSS variables updated in updateMargin
+  }, []);
 
   // Robust inline Drag Handler
   const startDragging = (side) => (event) => {

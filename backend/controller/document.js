@@ -1,21 +1,47 @@
 import Document from "../models/documentModel.js"
 import DocumentAccess from "../models/documentAccessModel.js"
 import DocumentAccessRequest from "../models/documentAccessRequestModel.js"
+import { proseJsonToYDocPayload, parseYDocToProseJson } from "../utils/yDocUtils.js"
+import * as Y from 'yjs';
 
 export const createDocument = async (req, res) => {
-  const {id} = req.user;
-  const document = new Document({
-    ownerId: id,
-  });
-  const savedDocument = await document.save();
-  const documentAccess = new DocumentAccess({
-    documentId: savedDocument._id,
-    userId: id,
-    accessLevel: 'owner',
-  });
-  await documentAccess.save();
+  try {
+    const { id } = req.user;
 
-  res.status(201).json({ message: 'Document created successfully', documentId: savedDocument._id, success: true });
+    const documentTitle = 'Untitled Document';
+
+    const yDoc = new Y.Doc();
+    yDoc.getMap('metadata');
+
+    const ydocbinary = Y.encodeStateAsUpdate(yDoc); // unint8array
+    const document = new Document({
+      ownerId: id,
+      title: documentTitle,
+      content: Buffer.from(ydocbinary),
+      assetList: [],
+    });
+
+    const savedDocument = await document.save();
+
+    const documentAccess = new DocumentAccess({
+      documentId: savedDocument._id,
+      userId: id,
+      accessLevel: 'owner',
+    });
+    await documentAccess.save();
+
+    res.status(201).json({
+      message: 'Document created successfully',
+      documentId: savedDocument._id,
+      success: true,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to create document',
+      error: error.message,
+      success: false,
+    });
+  }
 };
 
 export const getDocument = async (req, res) => {
@@ -23,14 +49,14 @@ export const getDocument = async (req, res) => {
     const {id} = req.user;
     const {documentId} = req.params;
     const document = await Document.findOne({ _id: documentId }, { assetList: 0 });
+    if(!document) return res.status(404).json({ message: 'Document not found', success: false });
     const accessList = await DocumentAccess.find({ documentId }).populate('userId', 'username email');
     const accessRequests = await DocumentAccessRequest.find({ documentId }).populate('userId', 'username email');
-
+    const ydocbuffer = document.content;
     res.status(200).json({
       document: {
-        title: document.title,
         ownerId: document.ownerId,
-        content: document.content,
+        content: Array.from(ydocbuffer),
         accessList,
         accessRequests,
         accessLevel: req.user.accessLevel,
@@ -136,6 +162,25 @@ export const denyAccessRequest = async (req, res) => {
     res.status(200).json({ message: 'Request denied successfully', success: true });
   } catch (error) {
     res.status(500).json({ message: 'Internal server error', success: false });
-    console.error(error);
+    console.error("error from denyAccessRequest document.js",error);
+  }
+};
+
+export const saveDocument = async (req, res) => {
+  try {
+    const { id } = req.user;
+    const { documentId } = req.params;
+    const yjsbuffer = req.body;
+    const uint8array = new Uint8Array(yjsbuffer);
+    const doc = await Document.findById(documentId);
+    if (!doc) {
+      return res.status(404).json({ message: 'Document not found', success: false });
+    }
+    doc.content = Buffer.from(uint8array);
+    await doc.save();
+    res.status(200).json({ message: 'Document saved successfully', success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error', success: false });
+    console.error("error from savedDocument document.js",error);
   }
 };

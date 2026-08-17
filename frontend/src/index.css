@@ -39,6 +39,9 @@
   --sidebar-ring: oklch(59.8% 0.912 217.2);
 }
 .tiptap {
+    width: 794px;
+    min-height: 1123px;
+    padding: 96px var(--page-margin-right, 48px) 96px var(--page-margin-left, 48px);
   a {
       color: #2e6ad2;
       cursor: pointer;

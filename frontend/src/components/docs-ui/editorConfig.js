@@ -23,20 +23,13 @@ import {
   Figure,
   ImageResize,
 } from "tiptap-extension-resize-image";
-
 import {
   CustomBulletList,
   CustomOrderedList,
   LineHeight
 } from "./extensions/customListExtensions";
-import { PageExtension, PageDocument } from '@adalat-ai/page-extension';
-
-
 import Collaboration from '@tiptap/extension-collaboration'
-import * as Y from 'yjs'
 
-
-// const doc = new Y.Doc()
 
 const editorAttributes = {
   class: "focus:outline-none print:border-0",
@@ -103,61 +96,43 @@ const editorExtensions = [
     types: ['paragraph', 'heading'], 
     defaultLineHeight: '1.5',
   }),
-  PageDocument,
-  PageExtension.configure({
-       // Required: Page dimensions
-       bodyHeight: 1123, // A4 height at 96 DPI (29.7cm = 11.69in × 96 DPI)
-       bodyWidth: 794,   // A4 width at 96 DPI (21.0cm = 8.27in × 96 DPI)
-       
-       // Optional: Page layout settings
-       pageLayout: {
-         margins: {
-           top: { unit: 'INCHES', value: 0.75 },
-           bottom: { unit: 'INCHES', value: 0.75 },
-           left: { unit: 'INCHES', value: 0.5 },
-           right: { unit: 'INCHES', value: 0.5 }
-         },
-         paragraphSpacing: {
-           before: { unit: 'PTS', value: 6 },
-           after: { unit: 'PTS', value: 6 }
-         }
-       },
-       
-       // Optional: Page numbering
-       pageNumber: {
-         show: true,
-         showCount: true,
-         showOnFirstPage: false,
-         position: 'bottom',
-         alignment: 'center'
-       },
-       
-     }),
-  // Collaboration.configure({
-  //   document: doc,
-  // }),
+  
 ];
 
-export const editorConfig = {
-  editorProps: {
-    attributes: editorAttributes,
-    handleClick: (view, pos, event) => {
-      const target = event.target;
-      const element = target?.nodeType === 3 ? target.parentNode : target;
-
-      if (element?.closest && element.closest("a")) {
-        event.preventDefault();
-
-        const { tr } = view.state;
-        const selection = TextSelection.create(view.state.doc, pos);
-        view.dispatch(tr.setSelection(selection));
-
-        return true;
-      }
-
-      return false;
+export const editorConfig = (yDoc) => {
+  return {
+    editorProps: {
+      attributes: editorAttributes,
+      handleClick: (view, pos, event) => {
+        const target = event.target;
+        const element = target?.nodeType === 3 ? target.parentNode : target;
+  
+        if (element?.closest && element.closest("a")) {
+          event.preventDefault();
+  
+          const { tr } = view.state;
+          const selection = TextSelection.create(view.state.doc, pos);
+          view.dispatch(tr.setSelection(selection));
+  
+          return true;
+        }
+  
+        return false;
+      },
     },
-  },
-  extensions: editorExtensions,
-  content: "<h1>Loading ....</h1>",
-};
+    extensions: [
+      ...editorExtensions,
+      Collaboration.configure({
+        document: yDoc,
+        feild : 'prosemirror'
+      }),
+    ],
+    onUpdate: ({ editor }) => {
+        const html = editor.getJSON();
+        // Call your onChange function here
+        console.log(html);
+      },
+    // Do NOT set content here — Collaboration extension loads it from the Y.Doc
+  };
+}
+

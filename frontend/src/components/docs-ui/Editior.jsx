@@ -17,7 +17,11 @@ const Editor = () => {
             </BubbleMenu>
           )}
           <LinkTooltip />*/}
-          <EditorContent editor={editor} id="document"/>
+          <div 
+            className="bg-white shadow-md print:shadow-none"
+          >
+            <EditorContent editor={editor} id="document"/>
+          </div>
         </div>
       </div>
     </>
