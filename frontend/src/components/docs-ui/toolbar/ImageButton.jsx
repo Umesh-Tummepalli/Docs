@@ -1,37 +1,61 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useEditorState } from "@tiptap/react";
 import { useEditorContext } from "../context/EditorContext";
-import { 
-  ImageIcon, 
-  Upload, 
-  Link, 
-  X, 
-  Check, 
-  AlertCircle, 
+import { useParams } from "react-router-dom";
+
+import {
+  ImageIcon,
+  Upload,
+  Link,
+  X,
+  Check,
+  AlertCircle,
   FileImage,
   Loader2,
   ExternalLink,
-  ArrowRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import ToolbarButton from "./ToolbarButton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { toast } from "react-toastify";
+import { uploadImageFile, validateImageFile } from "../extensions/imageUpload";
+
+// ---------------------------------------------------------------------------
+// ImageButton
+//
+// Handles image insertion via two modes:
+//   1. Upload — picks a file, inserts a pending node immediately (local blob
+//      preview), then the caller is responsible for uploading and calling
+//      onUploadSuccess / onUploadFailure from imageUtils.js.
+//
+//   2. URL — inserts an image node with src set directly (no upload).
+//
+// The actual upload API call lives outside this component. This component
+// provides insertPendingUpload() which returns { uploadId, file } so the
+// parent/handler can drive the upload and call the appropriate utilities.
+// ---------------------------------------------------------------------------
 
 const ImageButton = () => {
   const editor = useEditorContext();
-
+  const { docId } = useParams();
   const [panelOpen, setPanelOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
   const [mode, setMode] = useState("upload");
   const [error, setError] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [isPending, setIsPending] = useState(false);
 
   const wrapperRef = useRef(null);
   const urlInputRef = useRef(null);
+
+  const handleReset = useCallback(() => {
+    setImageUrl("");
+    setError("");
+    setDragOver(false);
+    setIsPending(false);
+  }, []);
 
   const { isImageActive } = useEditorState({
     editor,
@@ -40,7 +64,7 @@ const ImageButton = () => {
     }),
   });
 
-  // Handle click outside
+  // Close panel on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
@@ -48,86 +72,54 @@ const ImageButton = () => {
         handleReset();
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [handleReset]);
 
-  // Focus URL input when mode changes to URL
+  // Focus URL input when switching to URL mode
   useEffect(() => {
     if (panelOpen && mode === "url" && urlInputRef.current) {
       setTimeout(() => urlInputRef.current?.focus(), 200);
     }
   }, [mode, panelOpen]);
 
-  // Reset states
-  const handleReset = useCallback(() => {
-    setImageUrl("");
-    setError("");
-    setIsUploading(false);
-    setDragOver(false);
-    setPreviewUrl(null);
-  }, []);
+  // -------------------------------------------------------------------------
+  // Upload mode — file handler
+  // -------------------------------------------------------------------------
 
-  // Validate image URL
-  const validateImageUrl = (url) => {
+  const startUpload = async (file) => {
+    console.log("start upload function  called",file);
+    
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setError("");
+    setIsPending(true);
+
     try {
-      const parsed = new URL(url);
-      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-    } catch {
-      return false;
+      // This is the single entry point for picker and drag-and-drop uploads.
+      console.log(docId,file);
+      await uploadImageFile(editor, docId, file);
+      setPanelOpen(false);
+      handleReset();
+    } catch (err) {
+      const message = err.response?.data?.message || err.message || "Image upload failed. Please try again.";
+      setError(message);
+      toast.error(message);
+      console.error(err);
+    } finally {
+      setIsPending(false);
     }
   };
 
-  // Handle file upload with drag and drop
-  const handleFileUpload = useCallback((file) => {
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setError("Please select an image file");
-      return;
-    }
-
-    // Validate file size (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Image size should be less than 10MB");
-      return;
-    }
-
-    setError("");
-    setIsUploading(true);
-
-    // Show preview
-    const previewReader = new FileReader();
-    previewReader.onload = (e) => setPreviewUrl(e.target?.result);
-    previewReader.readAsDataURL(file);
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result;
-      if (result) {
-        editor?.chain().focus().setImage({ src: result }).run();
-        setTimeout(() => {
-          setPanelOpen(false);
-          handleReset();
-        }, 300);
-      }
-      setIsUploading(false);
-    };
-
-    reader.onerror = () => {
-      setError("Failed to upload image. Please try again.");
-      setIsUploading(false);
-      setPreviewUrl(null);
-    };
-
-    reader.readAsDataURL(file);
-  }, [editor, handleReset]);
-
   const handleFileInputChange = (e) => {
     const file = e.target.files?.[0];
-    if (file) handleFileUpload(file);
+    // Permit selecting the same file again after a failed upload.
+    e.target.value = "";
+    if (file) void startUpload(file);
   };
 
   // Drag and drop handlers
@@ -152,15 +144,26 @@ const ImageButton = () => {
     e.preventDefault();
     e.stopPropagation();
     setDragOver(false);
-    
     const file = e.dataTransfer.files?.[0];
-    if (file) handleFileUpload(file);
+    if (file) void startUpload(file);
   };
 
-  // Handle URL submission with validation
+  // -------------------------------------------------------------------------
+  // URL mode — insert image node with src directly
+  // -------------------------------------------------------------------------
+
+  const validateImageUrl = (url) => {
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
+
   const handleUrlSubmit = () => {
     const trimmedUrl = imageUrl.trim();
-    
+
     if (!trimmedUrl) {
       setError("Please enter an image URL");
       return;
@@ -172,19 +175,24 @@ const ImageButton = () => {
     }
 
     setError("");
-    editor?.chain().focus().setImage({ src: trimmedUrl }).run();
-    
+
+    // Insert as a direct-src image node — no upload, no map lookup needed
+    editor?.chain().focus().insertImageFromUrl(trimmedUrl).run();
+
     setTimeout(() => {
       setPanelOpen(false);
       handleReset();
     }, 300);
   };
 
-  // URL input change handler
   const handleUrlChange = (e) => {
     setImageUrl(e.target.value);
     if (error) setError("");
   };
+
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
 
   return (
     <div ref={wrapperRef} className="relative flex items-center">
@@ -208,7 +216,6 @@ const ImageButton = () => {
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="absolute left-0 top-full z-50 mt-2 w-[360px] rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden"
           >
-
             {/* Mode Switcher */}
             <div className="p-2 mx-4 mt-4 mb-2 bg-gray-100 rounded-lg flex gap-1">
               <button
@@ -253,20 +260,8 @@ const ImageButton = () => {
                     exit={{ opacity: 0, x: 20 }}
                     transition={{ duration: 0.2 }}
                   >
-                    {previewUrl && !isUploading ? (
-                      <div className="relative rounded-xl overflow-hidden mb-3">
-                        <img 
-                          src={previewUrl} 
-                          alt="Preview" 
-                          className="w-full h-40 object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                          <Check className="h-8 w-8 text-white" />
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <div
+                    <label
+                      htmlFor="image-file-input"
                       onDragEnter={handleDragEnter}
                       onDragLeave={handleDragLeave}
                       onDragOver={handleDragOver}
@@ -275,34 +270,36 @@ const ImageButton = () => {
                         dragOver
                           ? "border-blue-400 bg-blue-50 scale-[1.02]"
                           : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
-                      } ${isUploading ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}
+                      } ${isPending ? "opacity-50 pointer-events-none" : "cursor-pointer"}`}
                     >
-                      {isUploading ? (
+                      {isPending ? (
                         <div className="flex flex-col items-center gap-3">
                           <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
-                          <p className="text-sm font-medium text-gray-700">Uploading image...</p>
-                          <div className="w-full max-w-[200px] bg-gray-200 rounded-full h-1.5">
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: "100%" }}
-                              transition={{ duration: 1 }}
-                              className="bg-blue-500 h-1.5 rounded-full"
-                            />
-                          </div>
+                          <p className="text-sm font-medium text-gray-700">
+                            Inserting image…
+                          </p>
                         </div>
                       ) : (
                         <>
                           <motion.div
-                            animate={dragOver ? { scale: 1.1, rotate: [0, -5, 5, 0] } : {}}
+                            animate={
+                              dragOver
+                                ? { scale: 1.1, rotate: [0, -5, 5, 0] }
+                                : {}
+                            }
                             transition={{ duration: 0.3 }}
                             className="p-3 rounded-full bg-gray-100 mb-4"
                           >
-                            <Upload className={`h-6 w-6 ${dragOver ? "text-blue-500" : "text-gray-600"}`} />
+                            <Upload
+                              className={`h-6 w-6 ${dragOver ? "text-blue-500" : "text-gray-600"}`}
+                            />
                           </motion.div>
 
                           <div className="text-center">
                             <p className="text-sm font-medium text-gray-900 mb-1">
-                              {dragOver ? "Drop your image here" : "Click to upload"}
+                              {dragOver
+                                ? "Drop your image here"
+                                : "Click to upload"}
                             </p>
                             <p className="text-xs text-gray-500">
                               or drag and drop
@@ -310,29 +307,39 @@ const ImageButton = () => {
                           </div>
 
                           <div className="flex gap-2 mt-4">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 text-xs text-gray-600">
-                              <FileImage className="h-3 w-3" />
-                              JPG
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 text-xs text-gray-600">
-                              <FileImage className="h-3 w-3" />
-                              PNG
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 text-xs text-gray-600">
-                              <FileImage className="h-3 w-3" />
-                              GIF
-                            </span>
+                            {["JPG", "PNG", "GIF", "WEBP"].map((fmt) => (
+                              <span
+                                key={fmt}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 text-xs text-gray-600"
+                              >
+                                <FileImage className="h-3 w-3" />
+                                {fmt}
+                              </span>
+                            ))}
                           </div>
                         </>
                       )}
 
                       <input
+                        id="image-file-input"
                         type="file"
-                        accept="image/*"
-                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        className="sr-only"
                         onChange={handleFileInputChange}
+                        disabled={isPending}
                       />
-                    </div>
+                    </label>
+
+                    {error && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-center gap-1.5 mt-2 text-xs text-red-500"
+                      >
+                        <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                        {error}
+                      </motion.p>
+                    )}
                   </motion.div>
                 ) : (
                   <motion.div
@@ -367,7 +374,7 @@ const ImageButton = () => {
                           aria-invalid={!!error}
                         />
                         <Link className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        
+
                         {imageUrl && !error && (
                           <button
                             onClick={() => setImageUrl("")}

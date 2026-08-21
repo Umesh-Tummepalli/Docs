@@ -1,49 +1,4 @@
-import BulletList from "@tiptap/extension-bullet-list";
-import OrderedList from "@tiptap/extension-ordered-list";
 import { Extension } from '@tiptap/core'
-
-export const CustomBulletList = BulletList.extend({
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      listStyleType: {
-        default: "disc",
-        parseHTML: (element) => element.style.listStyleType || "disc",
-        renderHTML: (attributes) => {
-          if (!attributes.listStyleType || attributes.listStyleType === "disc") {
-            return {};
-          }
-
-          return {
-            style: `list-style-type: ${attributes.listStyleType}`,
-          };
-        },
-      },
-    };
-  },
-});
-
-export const CustomOrderedList = OrderedList.extend({
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      listStyleType: {
-        default: "decimal",
-        parseHTML: (element) => element.style.listStyleType || "decimal",
-        renderHTML: (attributes) => {
-          if (!attributes.listStyleType || attributes.listStyleType === "decimal") {
-            return {};
-          }
-
-          return {
-            style: `list-style-type: ${attributes.listStyleType}`,
-          };
-        },
-      },
-    };
-  },
-});
-
 
 export const LineHeight = Extension.create({
   name: 'lineHeight',

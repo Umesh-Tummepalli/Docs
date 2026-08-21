@@ -232,3 +232,30 @@
 .node-page{
   margin-bottom: 20px !important; 
 }
+
+/* Custom Image NodeView — shimmer loading skeleton */
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes image-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes image-loader-ring {
+  0%, 100% { opacity: .35; transform: scale(.88); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+
+/* Ensure the NodeViewWrapper div is treated as a block inside the editor */
+.tiptap [data-node-view-wrapper] img {
+  margin: 0;
+}
+
+/* Selection ring for the custom image node */
+.tiptap .ProseMirror-selectednode [data-node-view-wrapper] img {
+  outline: 3px solid #2e6ad2;
+  border-radius: 2px;
+}

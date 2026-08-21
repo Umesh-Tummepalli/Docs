@@ -1,6 +1,5 @@
 import Heading from "@tiptap/extension-heading";
 import Highlight from "@tiptap/extension-highlight";
-import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import { TableKit } from "@tiptap/extension-table";
 import TableCell from "@tiptap/extension-table-cell";
@@ -18,17 +17,12 @@ import TaskList from "@tiptap/extension-task-list";
 import Underline from "@tiptap/extension-underline";
 import { TextSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
-import {
-  Figcaption,
-  Figure,
-  ImageResize,
-} from "tiptap-extension-resize-image";
-import {
-  CustomBulletList,
-  CustomOrderedList,
-  LineHeight
-} from "./extensions/customListExtensions";
+import { CustomBulletList } from "./extensions/customBulletList";
+import { CustomOrderedList } from "./extensions/customOrderedList";
+import { LineHeight } from "./extensions/lineHeight";
+import { CustomImage } from "./extensions/customImage";
 import Collaboration from '@tiptap/extension-collaboration'
+import { getClipboardImageFile } from "./extensions/imageUpload";
 
 
 const editorAttributes = {
@@ -55,21 +49,9 @@ const editorExtensions = [
   TableKit.configure({
     table: { resizable: true },
   }),
-  Image.configure({
-    resize: {
-      enabled: true,
-      directions: ["top", "bottom", "left", "right"],
-      minWidth: 50,
-      minHeight: 50,
-      alwaysPreserveAspectRatio: true,
-    },
-  }),
+  // Single unified image node — handles assetId, uploadId, and direct src
+  CustomImage,
   Underline,
-  ImageResize.configure({
-    inline: true,
-  }),
-  Figure,
-  Figcaption,
   FontFamily,
   TextStyle,
   FontSize,
@@ -93,14 +75,14 @@ const editorExtensions = [
     defaultAlignment: "left",
   }),
   LineHeight.configure({
-    types: ['paragraph', 'heading'], 
+    types: ['paragraph', 'heading'],
     defaultLineHeight: '1.5',
   }),
-  
 ];
 
-export const editorConfig = (yDoc) => {
+export const editorConfig = (yDoc, editable = true, onImagePaste) => {
   return {
+    editable,
     editorProps: {
       attributes: editorAttributes,
       handleClick: (view, pos, event) => {
@@ -119,6 +101,14 @@ export const editorConfig = (yDoc) => {
   
         return false;
       },
+      handlePaste: (view, event) => {
+        const imageFile = getClipboardImageFile(event.clipboardData);
+        if (!imageFile) return false;
+
+        event.preventDefault();
+        onImagePaste?.(imageFile);
+        return true;
+      },
     },
     extensions: [
       ...editorExtensions,
@@ -135,4 +125,3 @@ export const editorConfig = (yDoc) => {
     // Do NOT set content here — Collaboration extension loads it from the Y.Doc
   };
 }
-

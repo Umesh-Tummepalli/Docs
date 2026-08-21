@@ -1,4 +1,4 @@
-import { useEffect, useState,useRef } from "react";
+import { useCallback, useEffect, useState,useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import api from "@/lib/api";
@@ -14,22 +14,34 @@ import useYDoc, { YDocProvider } from "./context/YDocContext";
 import { useEditor } from "@tiptap/react";
 import { editorConfig } from "./editorConfig";
 import * as Y from "yjs";
+import { uploadImageFile } from "./extensions/imageUpload";
 
-const EditorView = ({ docData, docId }) => {
+const EditorView = ({ docData, docId, editable }) => {
   const { yDoc, metadata } = useYDoc();
   const timer = useRef(null);
+  const editorRef = useRef(null);
   const [hydrated, setHydrated] = useState(false);
+  const handleImagePaste = useCallback((file) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    uploadImageFile(editor, docId, file).catch((error) => {
+      toast.error(error.response?.data?.message || error.message || "Image upload failed. Please try again.");
+      console.error(error);
+    });
+  }, [docId]);
   yDoc.on('update', () => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      const response = api.post(`/documents/${docId}/save`, Y.encodeStateAsUpdate(yDoc), {
-        headers: {
-        "Content-Type": "application/octet-stream",
-        },
-      });
-      console.log(response);
-
-      toast.success("Document saved");
+      async function saveDoc() {
+        const response = await api.post(`/documents/${docId}/save`, Y.encodeStateAsUpdate(yDoc), {
+          headers: {
+            "Content-Type": "application/octet-stream",
+          },
+        });
+        toast.success("Document saved");
+      }
+      saveDoc();
     },5000);
   });
   useEffect(() => {
@@ -40,9 +52,16 @@ const EditorView = ({ docData, docId }) => {
   }, [docData,yDoc]);
 
   const editor = useEditor(
-    editorConfig(yDoc),
-    [yDoc]
+    editorConfig(yDoc, editable, handleImagePaste),
+    [yDoc, editable, handleImagePaste]
   );
+
+  useEffect(() => {
+    editorRef.current = editor;
+    return () => {
+      editorRef.current = null;
+    };
+  }, [editor]);
 
   if (!hydrated || !editor) {
     return <Loading />;
@@ -51,7 +70,7 @@ const EditorView = ({ docData, docId }) => {
   return (
     <div className="min-h-screen mt-4">
       <EditorContext.Provider value={editor}>
-        <ToolBar />
+        {editable && <ToolBar />}
         <Ruler />
         <Editor />
       </EditorContext.Provider>
@@ -69,7 +88,7 @@ export default function Document() {
     setStatus("loading");
     try {
       const response = await api.get(`/documents/${docId}`);
-      setDocData(response?.data?.document?.content);
+      setDocData(response?.data?.document);
       setStatus("ready");
     }
     catch (error) {
@@ -127,7 +146,11 @@ export default function Document() {
           )}
         </div>
         <YDocProvider>
-          <EditorView docData={docData} docId={docId} />
+          <EditorView
+            docData={docData?.content}
+            docId={docId}
+            editable={['owner', 'write'].includes(docData?.accessLevel)}
+          />
         </YDocProvider>
       </div>
     );

@@ -2,8 +2,14 @@ import Document from "../models/documentModel.js"
 import DocumentAccess from "../models/documentAccessModel.js"
 import DocumentAccessRequest from "../models/documentAccessRequestModel.js"
 import { proseJsonToYDocPayload, parseYDocToProseJson } from "../utils/yDocUtils.js"
-import * as Y from 'yjs';
+import DocumentAsset from "../models/documentAssetModel.js"
 
+import * as Y from 'yjs';
+import { generateAccessUrl, generateUploadUrl, getObjectMetadata } from "../utils/s3.js";
+
+const canEdit = (accessLevel) => ["owner", "write"].includes(accessLevel);
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 export const createDocument = async (req, res) => {
   try {
     const { id } = req.user;
@@ -168,7 +174,9 @@ export const denyAccessRequest = async (req, res) => {
 
 export const saveDocument = async (req, res) => {
   try {
-    const { id } = req.user;
+    if (!canEdit(req.user.accessLevel)) {
+      return res.status(403).json({ message: 'Write access is required', success: false });
+    }
     const { documentId } = req.params;
     const yjsbuffer = req.body;
     const uint8array = new Uint8Array(yjsbuffer);
@@ -184,3 +192,100 @@ export const saveDocument = async (req, res) => {
     console.error("error from savedDocument document.js",error);
   }
 };
+
+export const imageHandler = async (req, res) => {
+  try {
+    const { id } = req.user;
+    const { documentId } = req.params;
+    
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error', success: false });
+    console.error("error from imageHandler document.js",error);
+  }
+};
+
+export const getImageUploadUrl = async (req, res) => {
+  try {
+    if (!canEdit(req.user.accessLevel)) {
+      return res.status(403).json({ message: 'Write access is required', success: false });
+    }
+
+    const { documentId } = req.params;
+    // This endpoint is a GET, so the client sends its metadata as query params.
+    const { fileType, fileName } = req.query;
+
+    if (typeof fileType !== 'string' || !ALLOWED_IMAGE_TYPES.has(fileType)) {
+      return res.status(400).json({ message: 'A valid image type is required', success: false });
+    }
+    if (typeof fileName !== 'string' || !fileName.trim()) {
+      return res.status(400).json({ message: 'A file name is required', success: false });
+    }
+
+    const uploadUrl = await generateUploadUrl(documentId, fileType, fileName);
+    const documentAsset = new DocumentAsset({
+      documentId,
+      key: uploadUrl.key,
+      contentType: fileType,
+    });
+    await documentAsset.save();
+    res.status(200).json({ uploadUrl: uploadUrl.uploadUrl, assetId: documentAsset._id, success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error', success: false });
+    console.error("error from getImageUploadUrl document.js",error);
+  }
+};
+
+export const completeImageUpload = async (req, res) => {
+  try {
+    if (!canEdit(req.user.accessLevel)) {
+      return res.status(403).json({ message: 'Write access is required', success: false });
+    }
+
+    const { documentId, assetId } = req.params;
+    const asset = await DocumentAsset.findOne({ _id: assetId, documentId });
+    if (!asset) {
+      return res.status(404).json({ message: 'Image asset not found', success: false });
+    }
+
+    const object = await getObjectMetadata(asset.key);
+    if (!ALLOWED_IMAGE_TYPES.has(object.ContentType)) {
+      return res.status(400).json({ message: 'Uploaded file is not an image', success: false });
+    }
+    if (object.ContentLength > MAX_IMAGE_SIZE_BYTES) {
+      return res.status(400).json({ message: 'Image size must be 10MB or less', success: false });
+    }
+
+    asset.status = 'ready';
+    await asset.save();
+
+    const assetUrl = await generateAccessUrl(asset.key);
+    return res.status(200).json({ assetUrl, success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Unable to complete image upload', success: false });
+    console.error('error from completeImageUpload document.js', error);
+  }
+};
+
+export async function getAssetUrl(req, res) {
+  try {
+    const { id } = req.user;
+    const { assetId } = req.params;
+    // Assets created before the status field was introduced are already live.
+    const asset = await DocumentAsset.findOne({ _id: assetId, status: { $ne: 'pending' } });
+    if (!asset) {
+      return res.status(404).json({ message: 'Image asset not found', success: false });
+    }
+
+    const access = await DocumentAccess.findOne({ documentId: asset.documentId, userId: id });
+    if (!access) {
+      return res.status(403).json({ message: 'Forbidden', success: false });
+    }
+
+    const accessUrl = await generateAccessUrl(asset.key);
+    if(!accessUrl) throw new Error('Failed to generate access URL');
+    res.status(200).json({ url: accessUrl, success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error', success: false });
+    console.error("error from getAssetUrl document.js",error);
+  }
+}
