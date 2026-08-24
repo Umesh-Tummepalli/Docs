@@ -5,10 +5,20 @@ import auth from "./routes/authentication.js"
 import cors from "cors";
 import documentRoutes from "./routes/document.js"
 import cookieParser from 'cookie-parser';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 
 await connectMongo();
 
 const app = express();
+const httpserver = createServer(app);
+export const io = new Server(httpserver, {
+  cors: {
+     origin: "http://localhost:5173",
+     credentials: true
+   }
+});
+
 app.use(cookieParser());
 
 // const configuredFrontendOrigin = process.env.FRONTEND_ORIGIN;
@@ -45,3 +55,4 @@ app.use((req, res) => {
 app.listen(8000,()=>{
   console.log("server running on port : 8000");
 })
+

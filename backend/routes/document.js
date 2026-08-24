@@ -23,6 +23,6 @@ router.get('/:documentId/image-upload-url', basicAuthorisation, documentAuthoris
 
 router.post('/:documentId/assets/:assetId/complete', basicAuthorisation, documentAuthorisation, completeImageUpload);
 
-router.get('/asseturl/:assetId', basicAuthorisation, getAssetUrl);
+router.get('/asseturl/:assetId', basicAuthorisation, documentAuthorisation, getAssetUrl);
 
 export default router;

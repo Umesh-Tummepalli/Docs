@@ -31,18 +31,18 @@ const EditorView = ({ docData, docId, editable }) => {
     });
   }, [docId]);
   yDoc.on('update', () => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      async function saveDoc() {
-        const response = await api.post(`/documents/${docId}/save`, Y.encodeStateAsUpdate(yDoc), {
-          headers: {
-            "Content-Type": "application/octet-stream",
-          },
-        });
-        toast.success("Document saved");
-      }
-      saveDoc();
-    },5000);
+    // if (timer.current) clearTimeout(timer.current);
+    // timer.current = setTimeout(() => {
+    //   async function saveDoc() {
+    //     const response = await api.post(`/documents/${docId}/save`, Y.encodeStateAsUpdate(yDoc), {
+    //       headers: {
+    //         "Content-Type": "application/octet-stream",
+    //       },
+    //     });
+    //     toast.success("Document saved");
+    //   }
+    //   saveDoc();
+    // },5000);
   });
   useEffect(() => {
     if (!docData) return;

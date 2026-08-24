@@ -1,11 +1,11 @@
 import Document from "../models/documentModel.js"
 import DocumentAccess from "../models/documentAccessModel.js"
 import DocumentAccessRequest from "../models/documentAccessRequestModel.js"
-import { proseJsonToYDocPayload, parseYDocToProseJson } from "../utils/yDocUtils.js"
 import DocumentAsset from "../models/documentAssetModel.js"
 
 import * as Y from 'yjs';
 import { generateAccessUrl, generateUploadUrl, getObjectMetadata } from "../utils/s3.js";
+import redis from "../config/redis.js"
 
 const canEdit = (accessLevel) => ["owner", "write"].includes(accessLevel);
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
@@ -266,7 +266,7 @@ export const completeImageUpload = async (req, res) => {
   }
 };
 
-export async function getAssetUrl(req, res) {
+export const getAssetUrl = async (req, res) => {
   try {
     const { id } = req.user;
     const { assetId } = req.params;
@@ -276,16 +276,22 @@ export async function getAssetUrl(req, res) {
       return res.status(404).json({ message: 'Image asset not found', success: false });
     }
 
-    const access = await DocumentAccess.findOne({ documentId: asset.documentId, userId: id });
-    if (!access) {
-      return res.status(403).json({ message: 'Forbidden', success: false });
+    // const access = await DocumentAccess.findOne({ documentId: asset.documentId, userId: id });
+    // if (!access) {
+    //   return res.status(403).json({ message: 'Forbidden', success: false });
+    // }
+
+    const cachedUrl = await redis.get(`assetURL:${assetId}`);
+    if (cachedUrl) {
+      return res.status(200).json({ url: cachedUrl, success: true });
     }
 
     const accessUrl = await generateAccessUrl(asset.key);
-    if(!accessUrl) throw new Error('Failed to generate access URL');
+    await redis.set(`assetURL:${assetId}`, accessUrl, 'EX', 60 * 60 * 10);
+    if (!accessUrl) throw new Error('Failed to generate access URL');
     res.status(200).json({ url: accessUrl, success: true });
   } catch (error) {
     res.status(500).json({ message: 'Internal server error', success: false });
-    console.error("error from getAssetUrl document.js",error);
+    console.error("error from getAssetUrl document.js", error);
   }
-}
+};

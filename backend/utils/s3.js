@@ -36,7 +36,7 @@ export const generateAccessUrl = async (key) => {
   });
 
   const accessUrl = await getSignedUrl(s3, command, {
-    expiresIn: 300, // 5 minutes
+    expiresIn: 60*60*10 , // 10 hours
   });
 
   return accessUrl;

@@ -234,19 +234,24 @@
 }
 
 /* Custom Image NodeView — shimmer loading skeleton */
-@keyframes shimmer {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+@keyframes image-shimmer {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+
+  100% {
+    transform: translateX(350%) skewX(-18deg);
+  }
 }
 
-@keyframes image-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
+@keyframes skeleton-progress {
+  0% {
+    transform: translateX(-120%);
+  }
 
-@keyframes image-loader-ring {
-  0%, 100% { opacity: .35; transform: scale(.88); }
-  50% { opacity: 1; transform: scale(1.12); }
+  100% {
+    transform: translateX(250%);
+  }
 }
 
 /* Ensure the NodeViewWrapper div is treated as a block inside the editor */
