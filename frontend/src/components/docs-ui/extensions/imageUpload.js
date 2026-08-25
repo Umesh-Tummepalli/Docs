@@ -42,6 +42,11 @@ export async function uploadImageFile(editor, docId, file) {
   if (!editor || !docId) throw new Error("The document is not ready for image uploads");
 
   const uploadId = crypto.randomUUID();
+
+  // Register the blob URL BEFORE inserting the node so the NodeView
+  // can resolve it synchronously on its first render — no skeleton flash.
+  addLocal(uploadId, file);
+
   const inserted = editor.chain().focus().insertPendingImage(uploadId).run();
 
   if (!inserted) {

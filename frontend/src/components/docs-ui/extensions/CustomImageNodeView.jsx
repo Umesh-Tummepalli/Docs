@@ -7,11 +7,11 @@ import {
 } from "lucide-react";
 import { resolveImageUrl, addPersisted } from "./imageStore";
 import api from "@/lib/api";
+import { useParams } from "react-router-dom";
 
 /* ---------------------------------------------------------
    Skeleton / Shimmer
 --------------------------------------------------------- */
-
 const ImageSkeleton = ({
   width,
   height,
@@ -153,6 +153,8 @@ const ImageError = ({ width, height }) => (
 
 /** Resolves local previews and signed image URLs for a Tiptap image node. */
 const CustomImageNodeView = ({ node }) => {
+  const { docId } = useParams();
+  
   const {
     assetId,
     uploadId,
@@ -202,12 +204,11 @@ const CustomImageNodeView = ({ node }) => {
 
     async function fetchImageUrl() {
       try {
-        const response = await api.get(
-          `/documents/asseturl/${assetId}`
-        );
-
         if (cancelled) return;
-
+        const response = await api.get(
+          `/documents/${docId}/asseturl/${assetId}`
+        );
+        
         const { url } = response.data;
 
         addPersisted(assetId, url);
@@ -276,8 +277,10 @@ const CustomImageNodeView = ({ node }) => {
      URL exists but actual image isn't loaded yet
   ------------------------------------------------------- */
 
-  const showSkeleton =
-    isPendingUpload || !imageLoaded;
+  // Show skeleton overlay only while the <img> tag itself hasn't loaded yet.
+  // Don't force-show skeleton during a pending upload — the local blob URL
+  // already gives us an immediate preview, so the user sees the image right away.
+  const showSkeleton = !imageLoaded;
 
   return (
     <NodeViewWrapper
@@ -327,12 +330,8 @@ const CustomImageNodeView = ({ node }) => {
           <ImageSkeleton
             width="100%"
             height="100%"
-            label={
-              isPendingUpload
-                ? "Uploading image"
-                : "Loading image"
-            }
-            showUploadIcon={isPendingUpload}
+            label="Loading image"
+            showUploadIcon={false}
           />
         </div>
       )}

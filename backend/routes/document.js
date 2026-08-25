@@ -1,6 +1,6 @@
 import express from 'express';
 import {basicAuthorisation,documentAuthorisation} from "../middlewares/authorisation.js"
-import { createDocument, getDocument, getDocumentAccess, getUsersDocuments, approveAccessRequest, denyAccessRequest, saveDocument, getImageUploadUrl, completeImageUpload, getAssetUrl } from '../controller/document.js';
+import { createDocument, getDocument, getDocumentAccess, getUsersDocuments, approveAccessRequest, denyAccessRequest, saveDocument, getImageUploadUrl, completeImageUpload, getAssetUrl, giveDocumentAccess } from '../controller/document.js';
 
 
 const router = express.Router();
@@ -8,6 +8,8 @@ const router = express.Router();
 router.post('/new', basicAuthorisation, createDocument);
 
 router.get('/:documentId', basicAuthorisation, documentAuthorisation, getDocument);
+
+router.get('/:documentId/collab-token', basicAuthorisation, documentAuthorisation, giveDocumentAccess);
 
 router.post('/:documentId/access-request', basicAuthorisation, getDocumentAccess);
 
@@ -23,6 +25,6 @@ router.get('/:documentId/image-upload-url', basicAuthorisation, documentAuthoris
 
 router.post('/:documentId/assets/:assetId/complete', basicAuthorisation, documentAuthorisation, completeImageUpload);
 
-router.get('/asseturl/:assetId', basicAuthorisation, documentAuthorisation, getAssetUrl);
+router.get('/:documentId/asseturl/:assetId', basicAuthorisation, documentAuthorisation, getAssetUrl);
 
 export default router;

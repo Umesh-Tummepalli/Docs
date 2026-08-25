@@ -6,6 +6,8 @@ import DocumentAsset from "../models/documentAssetModel.js"
 import * as Y from 'yjs';
 import { generateAccessUrl, generateUploadUrl, getObjectMetadata } from "../utils/s3.js";
 import redis from "../config/redis.js"
+import jwt from "jsonwebtoken"
+
 
 const canEdit = (accessLevel) => ["owner", "write"].includes(accessLevel);
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
@@ -71,6 +73,23 @@ export const getDocument = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Internal server error', success: false });
     console.error(error);
+  }
+};
+
+export const giveDocumentAccess = async (req, res) => {
+  try {
+    const { documentId } = req.params;
+    const { id, accessLevel } = req.user;
+
+    const payload = {
+      docId: documentId,
+      userId: id,
+      accessLevel,
+    }
+    const token = jwt.sign(payload, process.env.JWT_SECRET);
+    res.status(200).json({ token, success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error', success: false });
   }
 };
 

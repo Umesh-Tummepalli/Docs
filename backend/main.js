@@ -45,6 +45,8 @@ app.get('/', (req, res) => {
 app.use('/auth', auth);
 app.use('/documents', documentRoutes);
 
+// Register Socket.IO collaboration handlers
+import("./controller/collaboration.js");
 
 // page not found;
 app.use((req, res) => {
@@ -52,7 +54,7 @@ app.use((req, res) => {
 })
 
 // server listening
-app.listen(8000,()=>{
+httpserver.listen(8000,()=>{
   console.log("server running on port : 8000");
 })
 

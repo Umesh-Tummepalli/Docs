@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState,useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import api from "@/lib/api";
-import Editor from "./Editior";
-import ToolBar from "./ToolBar";
+import Editor from "./Editior";import ToolBar from "./ToolBar";
 import Ruler from "./Ruler";
 import EditorContext from "./context/EditorContext";
 import AccessDenied from "./AccessDenied";
@@ -13,43 +12,20 @@ import AccessPanel from "./AccessPanel";
 import useYDoc, { YDocProvider } from "./context/YDocContext";
 import { useEditor } from "@tiptap/react";
 import { editorConfig } from "./editorConfig";
-import * as Y from "yjs";
 import { uploadImageFile } from "./extensions/imageUpload";
 
-const EditorView = ({ docData, docId, editable }) => {
-  const { yDoc, metadata } = useYDoc();
-  const timer = useRef(null);
+const EditorView = ({ docId, editable }) => {
+  const { yDoc, synced } = useYDoc();
   const editorRef = useRef(null);
-  const [hydrated, setHydrated] = useState(false);
+
   const handleImagePaste = useCallback((file) => {
     const editor = editorRef.current;
     if (!editor) return;
-
     uploadImageFile(editor, docId, file).catch((error) => {
       toast.error(error.response?.data?.message || error.message || "Image upload failed. Please try again.");
       console.error(error);
     });
   }, [docId]);
-  yDoc.on('update', () => {
-    // if (timer.current) clearTimeout(timer.current);
-    // timer.current = setTimeout(() => {
-    //   async function saveDoc() {
-    //     const response = await api.post(`/documents/${docId}/save`, Y.encodeStateAsUpdate(yDoc), {
-    //       headers: {
-    //         "Content-Type": "application/octet-stream",
-    //       },
-    //     });
-    //     toast.success("Document saved");
-    //   }
-    //   saveDoc();
-    // },5000);
-  });
-  useEffect(() => {
-    if (!docData) return;
-    const bytes = new Uint8Array(docData);
-    Y.applyUpdate(yDoc, bytes);
-    setHydrated(true);
-  }, [docData,yDoc]);
 
   const editor = useEditor(
     editorConfig(yDoc, editable, handleImagePaste),
@@ -58,12 +34,11 @@ const EditorView = ({ docData, docId, editable }) => {
 
   useEffect(() => {
     editorRef.current = editor;
-    return () => {
-      editorRef.current = null;
-    };
+    return () => { editorRef.current = null; };
   }, [editor]);
 
-  if (!hydrated || !editor) {
+  // Wait for socket docSync before showing the editor
+  if (!synced || !editor) {
     return <Loading />;
   }
 
@@ -83,78 +58,66 @@ export default function Document() {
   const navigate = useNavigate();
   const [status, setStatus] = useState("loading");
   const [docData, setDocData] = useState(null);
-  
-  const fetchContent = async () => {
+
+  const fetchContent = useCallback(async () => {
     setStatus("loading");
     try {
       const response = await api.get(`/documents/${docId}`);
       setDocData(response?.data?.document);
       setStatus("ready");
-    }
-    catch (error) {
-      console.error(error.response);
+    } catch (error) {
       const statusCode = error.response?.status;
-
       if (statusCode === 401) {
-        toast.error("login to continue");
-        navigate('/login');
-      }
-      else if (statusCode === 404) {
+        toast.error("Login to continue");
+        navigate("/login");
+      } else if (statusCode === 404) {
         setStatus("not-found");
-      }
-      else if (statusCode === 403) {
-        toast.error("access denied");
+      } else if (statusCode === 403) {
+        toast.error("Access denied");
         setStatus("access-denied");
-      }
-      else {
-        toast.error("something went wrong");
-        navigate('/doc');
-        setStatus("error");
+      } else {
+        toast.error("Something went wrong");
+        navigate("/doc");
       }
       console.error(error);
     }
-   
-  };
+  }, [docId, navigate]);
 
   useEffect(() => {
     fetchContent();
-  }, [docId, navigate]);
-
-  let documentView;
+  }, [fetchContent]);
 
   if (status === "loading") {
-    documentView = <Loading />;
+    return <Loading />;
   }
-  else if (status === "access-denied") {
-    documentView = <AccessDenied docId={docId} />;
+  if (status === "access-denied") {
+    return <AccessDenied docId={docId} />;
   }
-  else if (status === "not-found") {
-    documentView = <DocumentNotFound />;
-  }
-  else {
-    documentView = (
-      <div className="bg-[#f9fbfd]">
-        <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200">
-          <h1 className="text-xl font-medium text-slate-800">{docData?.title || 'Untitled Document'}</h1>
-          {docData?.accessLevel === 'owner' && (
-            <AccessPanel 
-              docId={docId} 
-              accessList={docData.accessList} 
-              accessRequests={docData.accessRequests} 
-              onUpdate={fetchContent} 
-            />
-          )}
-        </div>
-        <YDocProvider>
-          <EditorView
-            docData={docData?.content}
-            docId={docId}
-            editable={['owner', 'write'].includes(docData?.accessLevel)}
-          />
-        </YDocProvider>
-      </div>
-    );
+  if (status === "not-found") {
+    return <DocumentNotFound />;
   }
 
-  return documentView;
+  return (
+    <div className="bg-[#f9fbfd]">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200">
+        <h1 className="text-xl font-medium text-slate-800">
+          {docData?.title || "Untitled Document"}
+        </h1>
+        {docData?.accessLevel === "owner" && (
+          <AccessPanel
+            docId={docId}
+            accessList={docData.accessList}
+            accessRequests={docData.accessRequests}
+            onUpdate={fetchContent}
+          />
+        )}
+      </div>
+      <YDocProvider docId={docId}>
+        <EditorView
+          docId={docId}
+          editable={["owner", "write"].includes(docData?.accessLevel)}
+        />
+      </YDocProvider>
+    </div>
+  );
 }
