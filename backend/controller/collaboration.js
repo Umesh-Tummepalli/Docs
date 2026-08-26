@@ -1,12 +1,19 @@
 import jwt from "jsonwebtoken";
 import { io } from "../main.js";
 import * as Y from "yjs";
+import {
+  Awareness,
+  applyAwarenessUpdate,
+  encodeAwarenessUpdate,
+  removeAwarenessStates,
+} from "y-protocols/awareness";
+import Document from "../models/documentModel.js";
 
-const activeDocuments = new Map(); // docId → Y.Doc
+// docId → { ydoc: Y.Doc, awareness: Awareness }
+const activeDocuments = new Map();
 
 // ── Auth middleware ──────────────────────────────────────────────────────────
-// Verifies the collaboration JWT (issued by giveDocumentAccess).
-// Token carries docId, userId, and accessLevel — no extra DB call needed.
+
 io.use((socket, next) => {
   try {
     const token = socket.handshake.auth.token;
@@ -14,6 +21,9 @@ io.use((socket, next) => {
     socket.data.userId = payload.userId;
     socket.data.docId = payload.docId;
     socket.data.accessLevel = payload.accessLevel;
+    // Set of Y.js clientIDs whose awareness state arrived via this socket.
+    // Populated incrementally as awarenessUpdate events come in.
+    socket.data.awarenessClientIds = new Set();
     next();
   } catch {
     next(new Error("Unauthorized"));
@@ -21,60 +31,172 @@ io.use((socket, next) => {
 });
 
 // ── Connection ───────────────────────────────────────────────────────────────
+
 io.on("connection", (socket) => {
-  console.log("a user connected", socket.id);
+
+  // ─────────────────────────────────────────
+  // JOIN ROOM
+  // ─────────────────────────────────────────
 
   socket.on("joinDocRoom", async (docId) => {
     try {
-      // Only allow joining the room the token was issued for
+      // Only allow joining the room the token was issued for.
       if (socket.data.docId !== docId) {
         return socket.emit("error", "Access denied");
       }
 
-      let ydoc = activeDocuments.get(docId);
+      let documentState = activeDocuments.get(docId);
 
-      if (!ydoc) {
-        const Document = (await import("../models/documentModel.js")).default;
+      if (!documentState) {
         const doc = await Document.findById(docId);
         if (!doc) return socket.emit("error", "Document not found");
 
-        ydoc = new Y.Doc();
+        const ydoc = new Y.Doc();
         if (doc.content?.length) {
           Y.applyUpdate(ydoc, new Uint8Array(doc.content));
         }
-        activeDocuments.set(docId, ydoc);
+
+        // One Awareness instance per document, shared by all sockets in the room.
+        const awareness = new Awareness(ydoc);
+
+        documentState = { ydoc, awareness };
+        activeDocuments.set(docId, documentState);
       }
+
+      const { ydoc, awareness } = documentState;
 
       socket.join(docId);
 
-      // Send current document state to the newly joined client
+      // ── Send current Y.Doc state ──────────────────────────────────────────
       socket.emit("docSync", Y.encodeStateAsUpdate(ydoc));
+
+      // ── Send existing awareness states to the newly joined client ─────────
+      // This lets the new client immediately see cursors that are already active.
+      const existingClientIds = Array.from(awareness.getStates().keys());
+      if (existingClientIds.length > 0) {
+        const awarenessUpdate = encodeAwarenessUpdate(awareness, existingClientIds);
+        // Socket.IO will serialise Uint8Array as binary — client receives it as-is.
+        socket.emit("awarenessUpdate", awarenessUpdate);
+      }
+
     } catch (error) {
       console.error("Error joining document:", error);
     }
   });
 
+  // ─────────────────────────────────────────
+  // Y.DOC UPDATE
+  // ─────────────────────────────────────────
+
   socket.on("docUpdate", (data) => {
-    // Use server-verified docId and accessLevel — never trust client payload
+    // Use server-verified docId and accessLevel — never trust client payload.
     const { docId, accessLevel } = socket.data;
     if (!docId || accessLevel === "read") return;
 
-    const ydoc = activeDocuments.get(docId);
-    if (!ydoc) return;
+    const documentState = activeDocuments.get(docId);
+    if (!documentState) return;
 
-    Y.applyUpdate(ydoc, new Uint8Array(data));
+    // data is a raw byte array (Array<number>) sent by the client.
+    Y.applyUpdate(documentState.ydoc, new Uint8Array(data));
+
+    // Broadcast raw bytes to everyone else in the room.
     socket.to(docId).emit("docUpdate", data);
   });
 
-  socket.on("disconnect", () => {
+  // ─────────────────────────────────────────
+  // AWARENESS UPDATE
+  // ─────────────────────────────────────────
+
+  socket.on("awarenessUpdate", (data) => {
     const { docId } = socket.data;
     if (!docId) return;
 
-    // Clean up Y.Doc from memory when the last user leaves
+    const documentState = activeDocuments.get(docId);
+    if (!documentState) return;
+
+    const { awareness } = documentState;
+
+    // Snapshot the known clientIds before applying so we can detect new ones.
+    const knownBefore = new Set(awareness.getStates().keys());
+
+    // Apply to the server's in-memory Awareness — keeps the server state
+    // authoritative for newly joining clients.
+    applyAwarenessUpdate(awareness, new Uint8Array(data), socket);
+
+    // Track any new clientIds that appeared in this update so we can clean
+    // them up correctly when this socket disconnects.
+    for (const clientId of awareness.getStates().keys()) {
+      if (!knownBefore.has(clientId)) {
+        socket.data.awarenessClientIds.add(clientId);
+      }
+    }
+
+    // Broadcast raw bytes to everyone else in the room.
+    socket.to(docId).emit("awarenessUpdate", data);
+  });
+
+  // ─────────────────────────────────────────
+  // DISCONNECT
+  // ─────────────────────────────────────────
+
+  socket.on("disconnect", async () => {
+    const { docId, awarenessClientIds } = socket.data;
+    if (!docId) return;
+
+    const documentState = activeDocuments.get(docId);
+    if (documentState && awarenessClientIds?.size > 0) {
+      const { awareness } = documentState;
+      const clientIds = Array.from(awarenessClientIds);
+
+      // Remove this client's cursor state from the server's Awareness.
+      removeAwarenessStates(awareness, clientIds, "disconnect");
+
+      // Broadcast the removal so other clients hide the departed cursor(s).
+      const removalUpdate = encodeAwarenessUpdate(awareness, clientIds);
+      socket.to(docId).emit("awarenessUpdate", removalUpdate);
+    }
+
+    // Remove Y.Doc + Awareness from memory when the room is empty,
+    // then call the hook so you can add persistence logic later.
     const room = io.sockets.adapter.rooms.get(docId);
     if (!room || room.size === 0) {
+      const finalState = activeDocuments.get(docId);
       activeDocuments.delete(docId);
-      console.log(`Cleaned up Y.Doc for room ${docId}`);
+      console.log(`Cleaned up collaboration state for ${docId}`);
+
+      if (finalState) {
+        await onRoomEmpty(docId, finalState.ydoc).catch((err) =>
+          console.error(`onRoomEmpty failed for ${docId}:`, err)
+        );
+      }
     }
   });
 });
+
+// ── Room-empty hook ──────────────────────────────────────────────────────────
+// Called once when the last connection leaves a document room.
+// ydoc still holds the final in-memory state at this point.
+//
+// TODO: implement your persistence / cleanup logic here.
+// Examples:
+//   - Save ydoc state back to the database
+//   - Write an audit log entry
+//   - Trigger a thumbnail / preview generation job
+//   - Send a "document closed" notification
+//
+// Sample implementation:
+//   const update = Y.encodeStateAsUpdate(ydoc);
+//   await Document.findByIdAndUpdate(docId, { content: Array.from(update) });
+
+async function onRoomEmpty(docId, ydoc) {
+  try {
+    const update = Y.encodeStateAsUpdate(ydoc);
+    // Must save as Buffer — the Document schema defines content as Buffer.
+    // Array.from(update) stores a plain array which Mongoose cannot read back
+    // as valid Y.js binary, resulting in a blank document on next load.
+    await Document.findByIdAndUpdate(docId, { content: Buffer.from(update) });
+  }
+  catch (err) {
+    console.error(`onRoomEmpty failed for ${docId}:`, err);
+  }
+}

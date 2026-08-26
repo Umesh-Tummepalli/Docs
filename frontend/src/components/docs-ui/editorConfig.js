@@ -21,9 +21,9 @@ import { CustomBulletList } from "./extensions/customBulletList";
 import { CustomOrderedList } from "./extensions/customOrderedList";
 import { LineHeight } from "./extensions/lineHeight";
 import { CustomImage } from "./extensions/customImage";
-import Collaboration from '@tiptap/extension-collaboration'
+import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { getClipboardImageFile } from "./extensions/imageUpload";
-
 
 const editorAttributes = {
   class: "focus:outline-none print:border-0",
@@ -36,6 +36,8 @@ const editorExtensions = [
   StarterKit.configure({
     bulletList: false,
     orderedList: false,
+    // StarterKit includes its own history; Collaboration replaces it.
+    history: false,
   }),
   CustomBulletList,
   CustomOrderedList,
@@ -75,12 +77,48 @@ const editorExtensions = [
     defaultAlignment: "left",
   }),
   LineHeight.configure({
-    types: ['paragraph', 'heading'],
-    defaultLineHeight: '1.5',
+    types: ["paragraph", "heading"],
+    defaultLineHeight: "1.5",
   }),
 ];
 
-export const editorConfig = (yDoc, editable = true, onImagePaste) => {
+/**
+ * Build TipTap editor configuration.
+ *
+ * @param {Y.Doc}                yDoc         - The existing shared Y.Doc.
+ * @param {SocketIOYProvider}    provider     - The existing collaboration provider (must have .awareness).
+ * @param {boolean}              editable     - Whether the editor is in edit mode.
+ * @param {Function|undefined}   onImagePaste - Callback for paste-to-upload.
+ */
+export const editorConfig = (yDoc, provider, editable = true, onImagePaste) => {
+  // Build the collaboration extensions list.
+  // CollaborationCaret is only added when a live provider is available so the
+  // editor never receives an undefined provider object.
+  const collaborationExtensions = [
+    Collaboration.configure({
+      // The existing Y.Doc continues to drive document state — unchanged.
+      document: yDoc,
+      field: "prosemirror",
+    }),
+  ];
+
+  if (provider) {
+    collaborationExtensions.push(
+      CollaborationCaret.configure({
+        // provider.awareness is the Awareness instance created by SocketIOYProvider.
+        // CollaborationCaret reads remote users' cursor data from it.
+        provider,
+        // The local user's display information is already set on the Awareness
+        // state by YDocContext via provider.setUser(). CollaborationCaret will
+        // also read/write the local state field here — this keeps it consistent.
+        user: provider.awareness.getLocalState()?.user ?? {
+          name: "Anonymous",
+          color: "#888888",
+        },
+      })
+    );
+  }
+
   return {
     editable,
     editorProps: {
@@ -88,17 +126,17 @@ export const editorConfig = (yDoc, editable = true, onImagePaste) => {
       handleClick: (view, pos, event) => {
         const target = event.target;
         const element = target?.nodeType === 3 ? target.parentNode : target;
-  
+
         if (element?.closest && element.closest("a")) {
           event.preventDefault();
-  
+
           const { tr } = view.state;
           const selection = TextSelection.create(view.state.doc, pos);
           view.dispatch(tr.setSelection(selection));
-  
+
           return true;
         }
-  
+
         return false;
       },
       handlePaste: (view, event) => {
@@ -112,16 +150,13 @@ export const editorConfig = (yDoc, editable = true, onImagePaste) => {
     },
     extensions: [
       ...editorExtensions,
-      Collaboration.configure({
-        document: yDoc,
-        feild : 'prosemirror'
-      }),
+      ...collaborationExtensions,
     ],
     onUpdate: ({ editor }) => {
-        const html = editor.getJSON();
-        // Call your onChange function here
-        console.log(html);
-      },
-    // Do NOT set content here — Collaboration extension loads it from the Y.Doc
+      const json = editor.getJSON();
+      // Call your onChange function here
+      console.log(json);
+    },
+    // Do NOT set content here — Collaboration extension loads it from the Y.Doc.
   };
-}
+};

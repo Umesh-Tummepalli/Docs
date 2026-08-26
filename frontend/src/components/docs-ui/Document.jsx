@@ -15,7 +15,9 @@ import { editorConfig } from "./editorConfig";
 import { uploadImageFile } from "./extensions/imageUpload";
 
 const EditorView = ({ docId, editable }) => {
-  const { yDoc, synced } = useYDoc();
+  // provider is the SocketIOYProvider instance — it exposes provider.awareness.
+  // It is null until the collab token is fetched and connect() is called.
+  const { yDoc, provider, synced } = useYDoc();
   const editorRef = useRef(null);
 
   const handleImagePaste = useCallback((file) => {
@@ -27,9 +29,15 @@ const EditorView = ({ docId, editable }) => {
     });
   }, [docId]);
 
+  // useEditor must always receive a valid config object — passing null crashes
+  // TipTap 3.x during the initial useState call (reads immediatelyRender off it).
+  // Instead, always pass a real config. editorConfig handles the provider being
+  // null by simply omitting CollaborationCaret from the extensions list.
+  // The loading guard below (!synced || !provider || !editor) still prevents the
+  // editor from being shown until the provider is live.
   const editor = useEditor(
-    editorConfig(yDoc, editable, handleImagePaste),
-    [yDoc, editable, handleImagePaste]
+    editorConfig(yDoc, provider, editable, handleImagePaste),
+    [yDoc, provider, editable, handleImagePaste]
   );
 
   useEffect(() => {
@@ -37,8 +45,8 @@ const EditorView = ({ docId, editable }) => {
     return () => { editorRef.current = null; };
   }, [editor]);
 
-  // Wait for socket docSync before showing the editor
-  if (!synced || !editor) {
+  // Wait for socket docSync and a live provider before showing the editor.
+  if (!synced || !provider || !editor) {
     return <Loading />;
   }
 
