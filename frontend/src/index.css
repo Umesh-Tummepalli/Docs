@@ -47,7 +47,7 @@
       cursor: pointer;
   
       &:hover {
-        @apply: underline
+        @apply underline;
       }
     }
   /* First child margin */
@@ -73,25 +73,87 @@
   h4 { font-size: 16px; }
   h5, h6 { font-size: 14px; }
   
-  /* List styles */
-  ul, ol {
-    padding: 0 1rem;
-    margin: 1.25rem 1rem 1.25rem 0.4rem;
-
-    li {
-      p {
-        margin-top: 0.25em;
-        margin-bottom: 0.25em;
-      }
-    }
-  }
-
+  /* List styles — Tailwind v4 preflight resets list-style to none.
+     We explicitly restore standard list item rendering and paddings inside .tiptap */
   ul:not([data-type='taskList']) {
     list-style-type: disc;
+    padding-left: 1.5rem;
+    margin: 1.25rem 1rem 1.25rem 0.4rem;
   }
 
   ol {
     list-style-type: decimal;
+    padding-left: 1.5rem;
+    margin: 1.25rem 1rem 1.25rem 0.4rem;
+  }
+
+  ul:not([data-type='taskList']) > li,
+  ol > li {
+    display: list-item;
+    list-style-type: inherit;
+
+    p {
+      margin-top: 0.25em;
+      margin-bottom: 0.25em;
+    }
+  }
+
+  /* Explicit Bullet list type variants */
+  ul[data-list-style='disc'],
+  ul[data-list-style='disc'] > li,
+  ul[type='disc'],
+  ul[type='disc'] > li {
+    list-style-type: disc !important;
+  }
+
+  ul[data-list-style='circle'],
+  ul[data-list-style='circle'] > li,
+  ul[type='circle'],
+  ul[type='circle'] > li {
+    list-style-type: circle !important;
+  }
+
+  ul[data-list-style='square'],
+  ul[data-list-style='square'] > li,
+  ul[type='square'],
+  ul[type='square'] > li {
+    list-style-type: square !important;
+  }
+
+  /* Explicit Numbered / Ordered list type variants */
+  ol[data-list-style='decimal'],
+  ol[data-list-style='decimal'] > li,
+  ol[type='1'],
+  ol[type='1'] > li {
+    list-style-type: decimal !important;
+  }
+
+  ol[data-list-style='lower-alpha'],
+  ol[data-list-style='lower-alpha'] > li,
+  ol[type='a'],
+  ol[type='a'] > li {
+    list-style-type: lower-alpha !important;
+  }
+
+  ol[data-list-style='upper-alpha'],
+  ol[data-list-style='upper-alpha'] > li,
+  ol[type='A'],
+  ol[type='A'] > li {
+    list-style-type: upper-alpha !important;
+  }
+
+  ol[data-list-style='lower-roman'],
+  ol[data-list-style='lower-roman'] > li,
+  ol[type='i'],
+  ol[type='i'] > li {
+    list-style-type: lower-roman !important;
+  }
+
+  ol[data-list-style='upper-roman'],
+  ol[data-list-style='upper-roman'] > li,
+  ol[type='I'],
+  ol[type='I'] > li {
+    list-style-type: upper-roman !important;
   }
 
   /* Task list styles */

@@ -55,11 +55,11 @@ const Login = () => {
         className="w-full max-w-md"
       >
         <div className="flex justify-center mb-8">
-          <div className="flex items-center gap-2 font-semibold text-2xl text-slate-700">
-            <div className="p-2 bg-[#0b57d0] rounded-lg shadow-sm">
+          <div className="flex items-center gap-2 text-2xl font-semibold">
+            <div className="rounded-lg bg-gradient-to-br from-[#0b57d0] to-violet-600 p-2 shadow-sm shadow-blue-200">
               <FileText className="w-6 h-6 text-white" />
             </div>
-            <span>WriteFlow</span>
+            <span className="bg-gradient-to-r from-[#0b57d0] to-violet-600 bg-clip-text text-transparent">WriteFlow</span>
           </div>
         </div>
 
@@ -102,7 +102,7 @@ const Login = () => {
               </div>
               <Button
                 type="submit"
-                className="w-full h-11 bg-[#0b57d0] hover:bg-[#0b57d0]/90 text-white font-medium shadow-sm transition-all group"
+                className="group h-11 w-full bg-gradient-to-r from-[#0b57d0] to-violet-600 font-medium text-white shadow-lg shadow-blue-200/60 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-violet-200/50"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -138,7 +138,7 @@ const Login = () => {
           <CardFooter className="flex flex-col border-t border-slate-100 bg-slate-50/50 px-6 py-4">
             <div className="text-center text-sm text-slate-600">
               Don't have an account?{' '}
-              <Link to="/register" className="font-semibold text-[#0b57d0] hover:text-[#0b57d0]/90 hover:underline transition-all">
+              <Link to="/register" className="font-semibold text-[#0b57d0] transition-all hover:text-violet-600 hover:underline">
                 Sign up
               </Link>
             </div>

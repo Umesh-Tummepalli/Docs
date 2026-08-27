@@ -19,23 +19,11 @@ import {
 import { useEditorContext } from "../context/EditorContext";
 
 const toggleBulletListWithStyle = (editor, style) => {
-  if (editor.isActive("bulletList") && editor.getAttributes("bulletList").listStyleType === style) {
-    editor.chain().focus().toggleBulletList().run();
-  } else if (editor.isActive("bulletList")) {
-    editor.chain().focus().updateAttributes("bulletList", { listStyleType: style }).run();
-  } else {
-    editor.chain().focus().toggleBulletList().updateAttributes("bulletList", { listStyleType: style }).run();
-  }
+  editor.chain().focus().toggleBulletList(style).run();
 };
 
 const toggleOrderedListWithStyle = (editor, style) => {
-  if (editor.isActive("orderedList") && editor.getAttributes("orderedList").listStyleType === style) {
-    editor.chain().focus().toggleOrderedList().run();
-  } else if (editor.isActive("orderedList")) {
-    editor.chain().focus().updateAttributes("orderedList", { listStyleType: style }).run();
-  } else {
-    editor.chain().focus().toggleOrderedList().updateAttributes("orderedList", { listStyleType: style }).run();
-  }
+  editor.chain().focus().toggleOrderedList(style).run();
 };
 
 const listStyles = [

@@ -1,16 +1,24 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Edit3, Eye, FileLock2, Send } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Edit3, Eye, FileLock2, Loader2, Send } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import api from '@/lib/api';
 
 const AccessDenied = ({ docId }) => {
+  const [isRequesting, setIsRequesting] = useState(false);
 
-  const handleRequestAccess = () => {
-    // TODO: Handle request access
-  };
-
-  const handleAskWriteAccess = () => {
-    // TODO: Handle ask write access
+  const handleRequestAccess = async () => {
+    try {
+      setIsRequesting(true);
+      const response = await api.post(`/documents/${docId}/access-request`, { accessLevel: 'read' });
+      toast.success(response.data?.message || 'Access request sent to the document owner.');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Unable to request access.');
+    } finally {
+      setIsRequesting(false);
+    }
   };
 
   return (
@@ -28,7 +36,7 @@ const AccessDenied = ({ docId }) => {
                 You need permission to open this document
               </h1>
               <p className="max-w-2xl text-lg leading-8 text-slate-600">
-                This WriteFlow document is private. Ask the owner for access, or request write access if you need to collaborate and make changes.
+                This WriteFlow document is private. Ask the owner for access and they can choose whether you can view or edit it.
               </p>
             </div>
 
@@ -43,19 +51,11 @@ const AccessDenied = ({ docId }) => {
               <Button
                 type="button"
                 onClick={handleRequestAccess}
+                disabled={isRequesting}
                 className="h-12 bg-[#0b57d0] px-6 text-white shadow-sm transition-all hover:bg-[#0b57d0]/90"
               >
-                <Send className="mr-2 h-4 w-4" />
-                Request access
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleAskWriteAccess}
-                className="h-12 border-slate-300 bg-white px-6 text-slate-700 transition-all hover:border-slate-400 hover:bg-slate-50"
-              >
-                <Edit3 className="mr-2 h-4 w-4" />
-                Ask for write access
+                {isRequesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Ask for access
               </Button>
             </div>
 

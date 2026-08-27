@@ -10,7 +10,7 @@ const MicrosoftAuth = () => {
       variant="outline"
       type="button"
       onClick={handleMicrosoftOAuth}
-      className="h-11 border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-700 font-medium transition-all"
+      className="h-11 border-slate-200 bg-white font-medium text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-200 hover:bg-violet-50/50 hover:shadow-md"
     >
       <svg className="mr-2 h-4 w-4" viewBox="0 0 21 21">
         <path fill="#f25022" d="M1 1h9v9H1z" />

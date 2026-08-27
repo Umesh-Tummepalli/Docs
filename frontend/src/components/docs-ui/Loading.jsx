@@ -4,7 +4,7 @@ const Loading = () => {
   return (
     <main className="flex min-h-[calc(100vh-73px)] items-center justify-center bg-gradient-to-b from-white to-slate-50 px-6 font-sans">
       <div className="flex flex-col items-center text-center">
-        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0b57d0] shadow-lg shadow-blue-200/70">
+        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0b57d0] to-violet-600 shadow-lg shadow-blue-200/70">
           <FileText className="h-8 w-8 text-white" />
         </div>
         <div className="flex items-center gap-3 text-slate-700">

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Users, Check, X, Shield, Eye, Edit3, Loader2, UserPlus, Clock } from 'lucide-react';
+import { useState } from 'react';
+import { Users, Check, X, Shield, Eye, Edit3, Loader2, UserPlus, Clock, RefreshCw } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,12 +9,27 @@ import api from '@/lib/api';
 
 const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate }) => {
   const [loadingAction, setLoadingAction] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleApprove = async (requestId) => {
+  const handleRefresh = async () => {
+    if (!onUpdate) return;
+
     try {
-      setLoadingAction(`approve-${requestId}`);
-      await api.post(`/documents/${docId}/access-request/approve`, { requestId });
-      toast.success("Access request approved");
+      setIsRefreshing(true);
+      const refreshed = await onUpdate();
+      if (refreshed !== false) toast.success('Access list refreshed');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Unable to refresh access details');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleApprove = async (requestId, accessLevel) => {
+    try {
+      setLoadingAction(`approve-${requestId}-${accessLevel}`);
+      await api.post(`/documents/${docId}/access-request/approve`, { requestId, accessLevel });
+      toast.success(accessLevel === 'owner' ? "Owner access granted" : accessLevel === 'write' ? "Write access granted" : "View access granted");
       if (onUpdate) onUpdate();
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to approve request");
@@ -29,6 +44,19 @@ const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate }) 
       await api.post(`/documents/${docId}/access-request/deny`, { requestId });
       toast.success("Access request denied");
       if (onUpdate) onUpdate();
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  const handleGrantOwner = async (userId) => {
+    try {
+      setLoadingAction(`owner-${userId}`);
+      await api.post(`/documents/${docId}/access/owner`, { userId });
+      toast.success('Owner access granted');
+      if (onUpdate) onUpdate();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to grant owner access');
     } finally {
       setLoadingAction(null);
     }
@@ -84,10 +112,23 @@ const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate }) 
       <SheetContent className="w-full sm:max-w-md p-0 overflow-y-auto bg-slate-50/50">
         <div className="p-6 bg-white border-b border-slate-200">
           <SheetHeader className="space-y-1.5">
-            <SheetTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-              <Users className="w-5 h-5 text-slate-600" />
-              Manage Access
-            </SheetTitle>
+            <div className="flex items-center justify-between gap-3">
+              <SheetTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                <Users className="w-5 h-5 text-slate-600" />
+                Manage Access
+              </SheetTitle>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="border-slate-300 text-slate-700 hover:bg-slate-50"
+              >
+                <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Reload
+              </Button>
+            </div>
             <SheetDescription className="text-sm text-slate-500">
               Control who can view and edit this document.
             </SheetDescription>
@@ -139,16 +180,42 @@ const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate }) 
                     <div className="flex flex-col gap-1.5 ml-3">
                       <Button 
                         size="sm" 
-                        onClick={() => handleApprove(request._id)}
+                        onClick={() => handleApprove(request._id, 'read')}
                         disabled={loadingAction !== null}
                         className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 px-3.5 text-xs font-medium shadow-sm hover:shadow transition-all duration-200"
                       >
-                        {loadingAction === `approve-${request._id}` ? (
+                        {loadingAction === `approve-${request._id}-read` ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
                           <Check className="w-3.5 h-3.5" />
                         )}
-                        <span className="ml-1">Approve</span>
+                        <span className="ml-1">View</span>
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        onClick={() => handleApprove(request._id, 'write')}
+                        disabled={loadingAction !== null}
+                        className="bg-[#0b57d0] hover:bg-[#0b57d0]/90 text-white h-8 px-3.5 text-xs font-medium shadow-sm hover:shadow transition-all duration-200"
+                      >
+                        {loadingAction === `approve-${request._id}-write` ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Edit3 className="w-3.5 h-3.5" />
+                        )}
+                        <span className="ml-1">Edit</span>
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        onClick={() => handleApprove(request._id, 'owner')}
+                        disabled={loadingAction !== null}
+                        className="bg-amber-500 hover:bg-amber-600 text-white h-8 px-3.5 text-xs font-medium shadow-sm hover:shadow transition-all duration-200"
+                      >
+                        {loadingAction === `approve-${request._id}-owner` ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Shield className="w-3.5 h-3.5" />
+                        )}
+                        <span className="ml-1">Owner</span>
                       </Button>
                       <Button 
                         size="sm" 
@@ -203,12 +270,26 @@ const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate }) 
                       </p>
                     </div>
                   </div>
-                  <Badge 
-                    variant="outline" 
-                    className={`${getRoleBadgeColor(access.accessLevel)} border px-3 py-1 text-xs font-medium capitalize flex-shrink-0 ml-2`}
-                  >
-                    {getRoleLabel(access.accessLevel)}
-                  </Badge>
+                  <div className="ml-2 flex shrink-0 items-center gap-2">
+                    {access.accessLevel !== 'owner' && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleGrantOwner(access.userId?._id || access.userId)}
+                        disabled={loadingAction !== null}
+                        className="h-7 border-amber-200 px-2 text-xs text-amber-700 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800"
+                      >
+                        {loadingAction === `owner-${access.userId?._id || access.userId}` ? <Loader2 className="size-3 animate-spin" /> : <><Shield className="mr-1 size-3" />Make owner</>}
+                      </Button>
+                    )}
+                    <Badge 
+                      variant="outline" 
+                      className={`${getRoleBadgeColor(access.accessLevel)} border px-3 py-1 text-xs font-medium capitalize`}
+                    >
+                      {getRoleLabel(access.accessLevel)}
+                    </Badge>
+                  </div>
                 </div>
               ))}
               

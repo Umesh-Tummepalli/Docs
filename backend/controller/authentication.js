@@ -47,7 +47,12 @@ export const handleNormalRegistration = async (req, res) => {
     }
 
     const hash = await bcrypt.hash(password, 10);
-    const user = new User({ email, password: hash, username });
+    const user = new User({
+      email,
+      password: hash,
+      username,
+      authProviders: [{ provider: 'local' }],
+    });
     await user.save();
 
     return res.status(200).json({ message: "User created successfully", success: true });
@@ -81,6 +86,28 @@ export const handleNormalLogin = async (req, res) => {
   } catch (error) {
     console.error("Login error:", error);
     return res.status(500).json({ message: "Failed to process login", success: false });
+  }
+};
+
+export const getCurrentUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('_id username email authProviders');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found', success: false });
+    }
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        authProviders: user.authProviders,
+      },
+    });
+  } catch (error) {
+    console.error('Current user error:', error);
+    return res.status(500).json({ message: 'Failed to load user', success: false });
   }
 };
 

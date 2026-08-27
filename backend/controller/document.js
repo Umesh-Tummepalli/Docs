@@ -54,15 +54,20 @@ export const createDocument = async (req, res) => {
 
 export const getDocument = async (req, res) => {
   try {
-    const {id} = req.user;
     const {documentId} = req.params;
     const document = await Document.findOne({ _id: documentId }, { assetList: 0 });
     if(!document) return res.status(404).json({ message: 'Document not found', success: false });
-    const accessList = await DocumentAccess.find({ documentId }).populate('userId', 'username email');
-    const accessRequests = await DocumentAccessRequest.find({ documentId }).populate('userId', 'username email');
+    const isOwner = req.user.accessLevel === 'owner';
+    const accessList = isOwner
+      ? await DocumentAccess.find({ documentId }).populate('userId', 'username email')
+      : [];
+    const accessRequests = isOwner
+      ? await DocumentAccessRequest.find({ documentId }).populate('userId', 'username email')
+      : [];
     const ydocbuffer = document.content;
     res.status(200).json({
       document: {
+        title: document.title,
         ownerId: document.ownerId,
         content: Array.from(ydocbuffer),
         accessList,
@@ -96,7 +101,26 @@ export const giveDocumentAccess = async (req, res) => {
 export const getUsersDocuments = async (req, res) => {
   try {
     const {id} = req.user;
-    const documents = await Document.find({ ownerId: id }, { accessRequests: 0, assetList: 0, content:0 });
+    const accessRecords = await DocumentAccess
+      .find({ userId: id })
+      .populate('documentId', 'title updatedAt')
+      .lean();
+
+    const documents = { owner: [], write: [], read: [] };
+    accessRecords.forEach((access) => {
+      if (!access.documentId || !documents[access.accessLevel]) return;
+      documents[access.accessLevel].push({
+        documentId: access.documentId._id,
+        title: access.documentId.title,
+        lastModified: access.documentId.updatedAt,
+        accessLevel: access.accessLevel,
+      });
+    });
+
+    Object.values(documents).forEach((list) => {
+      list.sort((first, second) => new Date(second.lastModified) - new Date(first.lastModified));
+    });
+
     res.status(200).json({ documents, success: true });
   } catch (error) {
     res.status(500).json({ message: 'Internal server error', success: false });
@@ -107,12 +131,17 @@ export const getDocumentAccess = async (req, res) => {
   try {
     const {id} = req.user;
     const { documentId } = req.params;
-    const { accessLevel } = req.query;
+    const accessLevel = req.body?.accessLevel || req.query?.accessLevel;
     if (!accessLevel) {
       return res.status(400).json({ message: 'Access level is required', success: false });
     }
     if (!['read', 'write'].includes(accessLevel)) {
       return res.status(400).json({ message: 'Invalid access level', success: false });
+    }
+
+    const document = await Document.findById(documentId).select('_id');
+    if (!document) {
+      return res.status(404).json({ message: 'Document not found', success: false });
     }
 
     const docaccess = await DocumentAccess.findOne({ documentId, userId: id });
@@ -144,25 +173,30 @@ export const approveAccessRequest = async (req, res) => {
   try {
     const { id } = req.user;
     const { documentId } = req.params;
-    const { requestId } = req.body;
+    const { requestId, accessLevel } = req.body;
 
     const access = await DocumentAccess.findOne({ documentId, userId: id });
     if (!access || access.accessLevel !== 'owner') {
       return res.status(403).json({ message: 'Forbidden', success: false });
     }
 
-    const request = await DocumentAccessRequest.findById(requestId);
+    const request = await DocumentAccessRequest.findOne({ _id: requestId, documentId });
     if (!request) {
       return res.status(404).json({ message: 'Request not found', success: false });
     }
 
-    await DocumentAccess.create({
-      documentId: request.documentId,
-      userId: request.userId,
-      accessLevel: request.accessLevel,
-    });
+    const grantedAccessLevel = accessLevel || request.accessLevel;
+    if (!['read', 'write', 'owner'].includes(grantedAccessLevel)) {
+      return res.status(400).json({ message: 'Invalid access level', success: false });
+    }
 
-    await DocumentAccessRequest.findByIdAndDelete(requestId);
+    await DocumentAccess.findOneAndUpdate(
+      { documentId, userId: request.userId },
+      { $set: { accessLevel: grantedAccessLevel } },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    await DocumentAccessRequest.deleteOne({ _id: requestId, documentId });
 
     res.status(200).json({ message: 'Request approved successfully', success: true });
   } catch (error) {
@@ -182,12 +216,79 @@ export const denyAccessRequest = async (req, res) => {
       return res.status(403).json({ message: 'Forbidden', success: false });
     }
 
-    await DocumentAccessRequest.findByIdAndDelete(requestId);
+    const deleted = await DocumentAccessRequest.findOneAndDelete({ _id: requestId, documentId });
+    if (!deleted) {
+      return res.status(404).json({ message: 'Request not found', success: false });
+    }
 
     res.status(200).json({ message: 'Request denied successfully', success: true });
   } catch (error) {
     res.status(500).json({ message: 'Internal server error', success: false });
     console.error("error from denyAccessRequest document.js",error);
+  }
+};
+
+export const grantOwnerAccess = async (req, res) => {
+  try {
+    const { id } = req.user;
+    const { documentId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required', success: false });
+    }
+
+    const requesterAccess = await DocumentAccess.findOne({ documentId, userId: id });
+    if (!requesterAccess || requesterAccess.accessLevel !== 'owner') {
+      return res.status(403).json({ message: 'Only document owners can grant ownership', success: false });
+    }
+
+    const recipientAccess = await DocumentAccess.findOne({ documentId, userId });
+    if (!recipientAccess) {
+      return res.status(404).json({ message: 'User does not have document access', success: false });
+    }
+
+    recipientAccess.accessLevel = 'owner';
+    await recipientAccess.save();
+
+    return res.status(200).json({ message: 'Owner access granted successfully', success: true });
+  } catch (error) {
+    console.error('error from grantOwnerAccess document.js', error);
+    return res.status(500).json({ message: 'Internal server error', success: false });
+  }
+};
+
+export const updateDocumentTitle = async (req, res) => {
+  try {
+    const { id } = req.user;
+    const { documentId } = req.params;
+    const title = req.body?.title?.trim();
+
+    if (!title) {
+      return res.status(400).json({ message: 'Document title is required', success: false });
+    }
+    if (title.length > 200) {
+      return res.status(400).json({ message: 'Document title must be 200 characters or fewer', success: false });
+    }
+
+    const ownerAccess = await DocumentAccess.findOne({ documentId, userId: id, accessLevel: 'owner' });
+    if (!ownerAccess) {
+      return res.status(403).json({ message: 'Only document owners can rename this document', success: false });
+    }
+
+    const document = await Document.findByIdAndUpdate(
+      documentId,
+      { $set: { title } },
+      { new: true, runValidators: true }
+    );
+    if (!document) {
+      return res.status(404).json({ message: 'Document not found', success: false });
+    }
+
+    return res.status(200).json({ message: 'Document title updated', title: document.title, success: true });
+  } catch (error) {
+    console.error('error from updateDocumentTitle document.js', error);
+    return res.status(500).json({ message: 'Internal server error', success: false });
   }
 };
 

@@ -1,6 +1,6 @@
 import express from 'express';
 import {basicAuthorisation,documentAuthorisation} from "../middlewares/authorisation.js"
-import { createDocument, getDocument, getDocumentAccess, getUsersDocuments, approveAccessRequest, denyAccessRequest, saveDocument, getImageUploadUrl, completeImageUpload, getAssetUrl, giveDocumentAccess } from '../controller/document.js';
+import { createDocument, getDocument, getDocumentAccess, getUsersDocuments, approveAccessRequest, denyAccessRequest, grantOwnerAccess, updateDocumentTitle, saveDocument, getImageUploadUrl, completeImageUpload, getAssetUrl, giveDocumentAccess } from '../controller/document.js';
 
 
 const router = express.Router();
@@ -16,6 +16,10 @@ router.post('/:documentId/access-request', basicAuthorisation, getDocumentAccess
 router.post('/:documentId/access-request/approve', basicAuthorisation, approveAccessRequest);
 
 router.post('/:documentId/access-request/deny', basicAuthorisation, denyAccessRequest);
+
+router.post('/:documentId/access/owner', basicAuthorisation, grantOwnerAccess);
+
+router.patch('/:documentId/title', basicAuthorisation, updateDocumentTitle);
 
 router.post('/:documentId/save', basicAuthorisation, documentAuthorisation, saveDocument);
 
