@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FileText, ChevronUp, ChevronDown } from 'lucide-react';
+import { FileText, ChevronUp, ChevronDown, FolderOpen } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import api from '@/lib/api';
@@ -37,38 +37,51 @@ const Navbar = () => {
   return (
     <>
       <nav className={`flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white fixed top-0 w-full z-50 transition-transform duration-300 ${isHidden ? '-translate-y-full' : 'translate-y-0'}`}>
-        <Link to="/doc" className="flex items-center gap-2 font-semibold text-xl text-slate-700 transition-colors hover:text-[#0b57d0]" aria-label="Go to documents">
+        <Link to="/" className="flex items-center gap-2 font-semibold text-xl text-slate-700 transition-colors hover:text-[#0b57d0]" aria-label="Go to home">
           <div className="rounded-md bg-gradient-to-br from-[#0b57d0] to-violet-600 p-1.5 shadow-sm shadow-blue-200">
             <FileText className="w-5 h-5 text-white" />
           </div>
           <span className="bg-gradient-to-r from-[#0b57d0] to-violet-600 bg-clip-text text-transparent">WriteFlow</span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-          <a href="#templates" className="hover:text-blue-600 transition-colors">Templates</a>
-          <a href="#features" className="hover:text-blue-600 transition-colors">Features</a>
-          <a href="#pricing" className="hover:text-blue-600 transition-colors">Pricing</a>
-        </div>
+        {/* Middle nav — intentionally empty until more pages are added */}
+        <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600" />
 
-        <div className="flex items-center gap-4">
-          {user ? (
-            <Link
-              to="/profile"
-              className="flex items-center gap-2 rounded-full p-1 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
-              title="Open profile"
-            >
-              <Avatar className="size-8">
-                <AvatarFallback className="bg-blue-100 font-semibold text-[#0b57d0]">{initial}</AvatarFallback>
-              </Avatar>
-              <span className="hidden lg:inline">Profile</span>
-            </Link>
-          ) : !isCheckingAuth ? (
+        <div className="flex items-center gap-3">
+          {isCheckingAuth ? (
+            <div className="h-8 w-8 animate-pulse rounded-full bg-slate-100" />
+          ) : user ? (
+            <>
+              {/* My Docs button */}
+              <Link to="/documents">
+                <Button
+                  variant="ghost"
+                  className="hidden sm:flex items-center gap-1.5 text-slate-600 hover:text-[#0b57d0] hover:bg-blue-50 transition-colors"
+                >
+                  <FolderOpen className="w-4 h-4" />
+                  My Docs
+                </Button>
+              </Link>
+
+              {/* Profile */}
+              <Link
+                to="/profile"
+                className="flex items-center gap-2 rounded-full p-1 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
+                title="Open profile"
+              >
+                <Avatar className="size-8">
+                  <AvatarFallback className="bg-blue-100 font-semibold text-[#0b57d0]">{initial}</AvatarFallback>
+                </Avatar>
+                <span className="hidden lg:inline">Profile</span>
+              </Link>
+            </>
+          ) : (
             <Link to="/login">
               <Button variant="ghost" className="hidden sm:flex text-slate-600 hover:text-slate-900 transition-colors">
                 Sign in
               </Button>
             </Link>
-          ) : <div className="h-8 w-8 animate-pulse rounded-full bg-slate-100" />}
+          )}
         </div>
 
         <button 

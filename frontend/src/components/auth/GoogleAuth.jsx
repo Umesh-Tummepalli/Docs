@@ -2,17 +2,20 @@ import { Button } from "@/components/ui/button";
 import { useGoogleLogin } from '@react-oauth/google';
 import api from '@/lib/api';
 import { toast } from "react-toastify";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const GoogleAuth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const from = searchParams.get('from') || '/documents';
+
   const handleGoogleOAuth = useGoogleLogin({
     flow: 'auth-code',
     onSuccess: async (tokenResponse) => {
       try {
         await api.post('/auth/google', { code: tokenResponse.code });
         toast.success("Authentication successful");
-        navigate('/doc');
+        navigate(from);
       }
       catch (err) {
         toast.error("Authentication failed");

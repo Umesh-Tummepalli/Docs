@@ -30,7 +30,7 @@ const PaperPreview = ({ className = '' }) => (
 );
 
 const DocumentCard = ({ document, section }) => (
-  <Link to={`/doc/${document.documentId}`} className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-100/60 focus:outline-none focus:ring-2 focus:ring-blue-300">
+  <Link to={`/documents/${document.documentId}`} className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-100/60 focus:outline-none focus:ring-2 focus:ring-blue-300">
     <PaperPreview className={section.previewClass} />
     <div className="p-4">
       <div className="flex items-start justify-between gap-3"><h3 className="min-w-0 flex-1 truncate font-semibold text-slate-800 transition-colors group-hover:text-[#0b57d0]" title={document.title}>{document.title || 'Untitled Document'}</h3><span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold ring-1 ${section.badgeClass}`}>{section.badgeLabel}</span></div>
@@ -62,7 +62,7 @@ const Home = () => {
       const response = await api.get('/documents');
       setDocuments({ owner: [], write: [], read: [], ...(response.data?.documents || {}) });
     } catch (error) {
-      if (error.response?.status === 401) { toast.error('Login to continue'); navigate('/login'); }
+      if (error.response?.status === 401) { toast.error('Login to continue'); navigate('/login?from=%2Fdocuments'); }
       else toast.error(error.response?.data?.message || 'Unable to load your documents.');
     } finally { setIsLoadingDocuments(false); }
   };
@@ -74,9 +74,9 @@ const Home = () => {
     setIsCreating(true);
     try {
       const response = await api.post('/documents/new', {});
-      navigate(`/doc/${response.data.documentId}`);
+      navigate(`/documents/${response.data.documentId}`);
     } catch (error) {
-      if (error?.response?.status === 401) { navigate('/login'); toast.error('Login to continue'); }
+      if (error?.response?.status === 401) { navigate('/login?from=%2Fdocuments'); toast.error('Login to continue'); }
       else toast.error(error?.response?.data?.message || error.message || 'Something went wrong');
       setIsCreating(false);
     }

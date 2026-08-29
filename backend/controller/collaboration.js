@@ -1,6 +1,8 @@
 import jwt from "jsonwebtoken";
 import { io } from "../main.js";
 import * as Y from "yjs";
+import fs from "fs";
+
 import {
   Awareness,
   applyAwarenessUpdate,
@@ -8,6 +10,7 @@ import {
   removeAwarenessStates,
 } from "y-protocols/awareness";
 import Document from "../models/documentModel.js";
+import { extractImagesFromYDoc, cleanUnusedAssets } from "../utils/yDocUtils.js";
 
 // docId → { ydoc: Y.Doc, awareness: Awareness }
 const activeDocuments = new Map();
@@ -175,28 +178,17 @@ io.on("connection", (socket) => {
 
 // ── Room-empty hook ──────────────────────────────────────────────────────────
 // Called once when the last connection leaves a document room.
-// ydoc still holds the final in-memory state at this point.
-//
-// TODO: implement your persistence / cleanup logic here.
-// Examples:
-//   - Save ydoc state back to the database
-//   - Write an audit log entry
-//   - Trigger a thumbnail / preview generation job
-//   - Send a "document closed" notification
-//
-// Sample implementation:
-//   const update = Y.encodeStateAsUpdate(ydoc);
-//   await Document.findByIdAndUpdate(docId, { content: Array.from(update) });
-
+// Persists the final Y.Doc state and removes any assets that were deleted
+// during the session (S3 object + DocumentAsset record).
 async function onRoomEmpty(docId, ydoc) {
   try {
+    // 1. Persist the final Y.Doc state back to MongoDB.
     const update = Y.encodeStateAsUpdate(ydoc);
-    // Must save as Buffer — the Document schema defines content as Buffer.
-    // Array.from(update) stores a plain array which Mongoose cannot read back
-    // as valid Y.js binary, resulting in a blank document on next load.
     await Document.findByIdAndUpdate(docId, { content: Buffer.from(update) });
-  }
-  catch (err) {
+
+    // 2. Remove any S3 objects + DB records for assets no longer in the document.
+    await cleanUnusedAssets(docId, ydoc);
+  } catch (err) {
     console.error(`onRoomEmpty failed for ${docId}:`, err);
   }
 }

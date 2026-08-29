@@ -1,159 +1,100 @@
-import * as Y from 'yjs';
+import * as Y from "yjs";
+import DocumentAsset from "../models/documentAssetModel.js";
+import { deleteObject } from "./s3.js";
 
 /**
- * Helper: Converts a ProseMirror JSON node into native Yjs XML types recursively.
- */
-function jsonToYXmlNode(node) {
-  if (node.type === 'text') {
-    const yText = new Y.Text(node.text || '');
-    if (Array.isArray(node.marks) && node.marks.length > 0) {
-      node.marks.forEach((mark) => {
-        if (mark.type) {
-          yText.format(0, (node.text || '').length, { [mark.type]: mark.attrs || true });
-        }
-      });
-    }
-    return yText;
-  }
-
-  const yElement = new Y.XmlElement(node.type);
-
-  // Preserve all node attributes (textAlign, lineHeight, level, etc.)
-  if (node.attrs && typeof node.attrs === 'object') {
-    Object.entries(node.attrs).forEach(([key, val]) => {
-      if (val !== undefined && val !== null) {
-        yElement.setAttribute(key, val);
-      }
-    });
-  }
-
-  // Recursively add child nodes
-  if (Array.isArray(node.content)) {
-    const children = node.content.map(jsonToYXmlNode);
-    yElement.insert(0, children);
-  }
-
-  return yElement;
-}
-
-/**
- * Converts title, metadata, and ProseMirror JSON into a base64 Y.Doc payload.
+ * Walk the Y.js XML tree stored under the "prosemirror" key and return every
+ * image node's attributes.
  *
- * @param {Object} params
- * @param {string} [params.title='Untitled Document'] - Document title
- * @param {Record<string, any>} [params.metadata={}] - Metadata key-value map
- * @param {Object} [params.prosemirrorJson] - ProseMirror/Tiptap JSON object
- * @returns {string} Encoded base64 Y.Doc binary payload
+ * Root cause of the original bug:
+ *   ydoc.get("prosemirror")                  → returns AbstractType (no XML tree)
+ *   ydoc.get("prosemirror", Y.XmlFragment)   → returns the real XmlFragment
+ *
+ * Image nodes look like:
+ *   <image alt="" assetId="6a931cbb60ecfa6973a47ef3" />
  */
-export function proseJsonToYDocPayload({
-  title = 'Untitled Document',
-  metadata = {},
-  prosemirrorJson = null,
-}) {
-  const ydoc = new Y.Doc();
+export function extractImagesFromYDoc(ydoc) {
+  // MUST pass Y.XmlFragment as the second arg — without it Y.js returns a raw
+  // AbstractType that has no toArray() / nodeName / getAttributes().
+  const fragment = ydoc.get("prosemirror", Y.XmlFragment);
 
-  // Default initial document structure matching editor.getJSON()
-  const targetJson = prosemirrorJson
+  const images = [];
 
-  // 1. Populate 'prosemirror' Y.XmlFragment
-  const xmlFragment = ydoc.getXmlFragment('prosemirror');
-  if (Array.isArray(targetJson.content)) {
-    const yChildren = targetJson.content.map(jsonToYXmlNode);
-    xmlFragment.insert(0, yChildren);
-  }
+  function traverse(node) {
+    // Y.XmlText has no nodeName — skip it.
+    if (node instanceof Y.XmlText) return;
 
-  // 2. Set 'title' Y.Text
-  if (title) {
-    ydoc.getText('title').insert(0, title);
-  }
-
-  // 3. Set 'metadata' Y.Map
-  if (metadata && typeof metadata === 'object') {
-    const yMetadata = ydoc.getMap('metadata');
-    Object.entries(metadata).forEach(([key, value]) => {
-      yMetadata.set(key, value);
-    });
-  }
-
-  // 4. Return binary Base64 string payload
-  const binaryUpdate = Y.encodeStateAsUpdate(ydoc);
-  return Buffer.from(binaryUpdate).toString('base64');
-}
-
-
-/**
- * Helper: Recursively converts a Y.XmlFragment or Y.XmlElement back to ProseMirror JSON.
- */
-function yXmlNodeToJson(yNode) {
-  const content = [];
-
-  for (let i = 0; i < yNode.length; i++) {
-    const child = yNode.get(i);
-
-    if (child instanceof Y.YText) {
-      // Extract formatted text with marks
-      const textJSON = child.toDelta();
-      textJSON.forEach((delta) => {
-        const textNode = { type: 'text', text: delta.insert };
-        if (delta.attributes) {
-          textNode.marks = Object.entries(delta.attributes).map(([type, attrs]) => ({
-            type,
-            ...(typeof attrs === 'object' ? { attrs } : {}),
-          }));
-        }
-        content.push(textNode);
-      });
-    } else if (child instanceof Y.XmlElement) {
-      const elementNode = {
-        type: child.nodeName,
-        attrs: child.getAttributes(),
-      };
-
-      const childContent = yXmlNodeToJson(child);
-      if (childContent.length > 0) {
-        elementNode.content = childContent;
+    if (node.nodeName === "image") {
+      const attrs = node.getAttributes(); // { alt, assetId, … }
+      if (attrs.assetId) {
+        images.push(attrs);
       }
+    }
 
-      content.push(elementNode);
+    // Recurse into children (works for both XmlFragment and XmlElement).
+    const children = node.toArray ? node.toArray() : [];
+    for (const child of children) {
+      traverse(child);
     }
   }
 
-  return content;
+  traverse(fragment);
+  return images;
 }
 
 /**
- * Parses a Y.Doc instance, Base64 string, or Buffer into title, metadata, and prosemirrorJson.
+ * After a collaborative session ends, compare the assets referenced in the
+ * Y.Doc against every DocumentAsset record for this document.
  *
- * @param {Y.Doc | string | Buffer} input - Y.Doc instance, base64 payload, or Buffer
- * @returns {{ title: string, metadata: Record<string, any>, prosemirrorJson: Object }}
+ * Any asset that is no longer referenced in the document is:
+ *   1. Deleted from S3 (removeObject).
+ *   2. Deleted from the DocumentAsset collection.
+ *
+ * @param {string}  docId  - MongoDB document ID
+ * @param {Y.Doc}   ydoc   - The final in-memory Y.Doc for this session
  */
-export function parseYDocToProseJson(input) {
-  let ydoc;
+export async function cleanUnusedAssets(docId, ydoc) {
+  // Collect assetIds that are still referenced in the document.
+  try {
+    
+    const referencedImages = extractImagesFromYDoc(ydoc);
+    const referencedAssetIds = new Set(referencedImages.map((img) => img.assetId));
 
-  if (input instanceof Y.Doc) {
-    ydoc = input;
-  } else {
-    ydoc = new Y.Doc();
-    const buffer = typeof input === 'string' ? Buffer.from(input, 'base64') : input;
-    Y.applyUpdate(ydoc, new Uint8Array(buffer));
+    // Fetch every asset record stored for this document.
+    const storedAssets = await DocumentAsset.find({ documentId: docId });
+
+    // Identify the ones that are no longer in the document.
+    const unusedAssets = storedAssets.filter(
+      (asset) => !referencedAssetIds.has(asset._id.toString())
+    );
+
+    if (unusedAssets.length === 0) {
+      console.log(`[cleanUnusedAssets] No unused assets for document ${docId}`);
+      return;
+    }
+
+    console.log(
+      `[cleanUnusedAssets] Removing ${unusedAssets.length} unused asset(s) for document ${docId}`
+    );
+
+    // Delete each unused asset from S3 then from the DB.
+    // Use allSettled so one S3 failure doesn't block the rest.
+    const results = await Promise.allSettled(
+      unusedAssets.map(async (asset) => {
+        await deleteObject(asset.key);
+        await DocumentAsset.deleteOne({ _id: asset._id });
+        console.log(`[cleanUnusedAssets] Deleted asset ${asset._id} (key: ${asset.key})`);
+      })
+    );
+
+    // Log any individual failures without throwing — cleanup is best-effort.
+    for (const result of results) {
+      if (result.status === "rejected") {
+        console.error("[cleanUnusedAssets] Failed to delete an asset:", result.reason);
+      }
+    }
   }
-
-  // 1. Extract Title
-  const title = ydoc.getText('title').toString();
-
-  // 2. Extract Metadata
-  const metadata = ydoc.getMap('metadata').toJSON();
-
-  // 3. Extract ProseMirror JSON Tree
-  const xmlFragment = ydoc.getXmlFragment('prosemirror');
-  const prosemirrorJson = {
-    type: 'doc',
-    content: yXmlNodeToJson(xmlFragment),
-  };
-
-  return {
-    title,
-    metadata,
-    prosemirrorJson,
-  };
+  catch (err) {
+    console.error(`cleanUnusedAssets failed for ${docId}:`, err);
+  }
 }

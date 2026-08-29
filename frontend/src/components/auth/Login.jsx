@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,8 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const from = searchParams.get('from') || '/documents';
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -29,7 +31,7 @@ const Login = () => {
 
       if (response.data.success) {
         toast.success(response.data.message);
-        navigate('/doc'); // Assuming /documents is the dashboard or home after login
+        navigate(from);
       } else {
         toast.error(response.data.message || 'Login failed. Please try again.');
       }
@@ -138,7 +140,7 @@ const Login = () => {
           <CardFooter className="flex flex-col border-t border-slate-100 bg-slate-50/50 px-6 py-4">
             <div className="text-center text-sm text-slate-600">
               Don't have an account?{' '}
-              <Link to="/register" className="font-semibold text-[#0b57d0] transition-all hover:text-violet-600 hover:underline">
+              <Link to={`/register${from !== '/documents' ? `?from=${encodeURIComponent(from)}` : ''}`} className="font-semibold text-[#0b57d0] transition-all hover:text-violet-600 hover:underline">
                 Sign up
               </Link>
             </div>

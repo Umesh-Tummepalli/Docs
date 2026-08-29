@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const from = searchParams.get('from') || '/documents';
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -30,7 +32,8 @@ const Register = () => {
     try {
       const response = await api.post('/auth/register', { username, email, password });
       toast.success(response.data.message || 'Registration successful!');
-      navigate('/login');
+      // Send to login carrying the same ?from= so after login they land in the right place
+      navigate(`/login${from !== '/documents' ? `?from=${encodeURIComponent(from)}` : ''}`);
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
       toast.error(errorMessage);
@@ -155,7 +158,7 @@ const Register = () => {
           <CardFooter className="flex flex-col border-t border-slate-100 bg-slate-50/50 px-6 py-4">
             <div className="text-center text-sm text-slate-600">
               Already have an account?{' '}
-              <Link to="/login" className="font-semibold text-[#0b57d0] transition-all hover:text-violet-600 hover:underline">
+              <Link to={`/login${from !== '/documents' ? `?from=${encodeURIComponent(from)}` : ''}`} className="font-semibold text-[#0b57d0] transition-all hover:text-violet-600 hover:underline">
                 Sign in
               </Link>
             </div>
