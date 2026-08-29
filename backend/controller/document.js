@@ -1,17 +1,22 @@
+import redis from "../config/redis.js"
+import jwt from "jsonwebtoken"
+import puppeteer from "puppeteer";
+import * as Y from 'yjs';
+
+
 import Document from "../models/documentModel.js"
 import DocumentAccess from "../models/documentAccessModel.js"
 import DocumentAccessRequest from "../models/documentAccessRequestModel.js"
 import DocumentAsset from "../models/documentAssetModel.js"
 
-import * as Y from 'yjs';
-import { generateAccessUrl, generateUploadUrl, getObjectMetadata } from "../utils/s3.js";
-import redis from "../config/redis.js"
-import jwt from "jsonwebtoken"
+import { generateAccessUrl, generateUploadUrl, getObjectMetadata, deleteObject } from "../utils/s3.js";
 
 
 const canEdit = (accessLevel) => ["owner", "write"].includes(accessLevel);
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
+
+
 export const createDocument = async (req, res) => {
   try {
     const { id } = req.user;
@@ -415,3 +420,83 @@ export const getAssetUrl = async (req, res) => {
     console.error("error from getAssetUrl document.js", error);
   }
 };
+
+export const deleteDocument = async (req, res) => {
+  try {
+    const { id } = req.user;
+    const { documentId } = req.params;
+
+    // Verify the requester is the document owner.
+    const access = await DocumentAccess.findOne({ documentId, userId: id });
+    if (!access || access.accessLevel !== 'owner') {
+      return res.status(403).json({ message: 'Only the document owner can delete this document', success: false });
+    }
+
+    const document = await Document.findById(documentId);
+    if (!document) {
+      return res.status(404).json({ message: 'Document not found', success: false });
+    }
+
+    // Delete all S3 objects for this document's assets, then the DB records.
+    const assets = await DocumentAsset.find({ documentId });
+    await Promise.allSettled(
+      assets.map((asset) => deleteObject(asset.key))
+    );
+    await DocumentAsset.deleteMany({ documentId });
+
+    // Delete access records, access requests, and the document itself.
+    await DocumentAccess.deleteMany({ documentId });
+    await DocumentAccessRequest.deleteMany({ documentId });
+    await Document.findByIdAndDelete(documentId);
+
+    return res.status(200).json({ message: 'Document deleted successfully', success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error', success: false });
+    console.error('error from deleteDocument document.js', error);
+  }
+};
+
+export const convertToPdf = async (req, res) => {
+  const { html } = req.body;
+
+  if (!html || typeof html !== "string") {
+    return res.status(400).json({
+      message: "html is required and must be a string",
+    });
+  }
+
+  let browser;
+
+  try {
+    browser = await puppeteer.launch();
+
+    const page = await browser.newPage();
+
+    await page.setContent(html, {
+      waitUntil: "networkidle0",
+    });
+
+    const pdf = await page.pdf({
+      format: "A4",
+      printBackground: true,
+    });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", 'inline; filename="document.pdf"');
+    res.setHeader("Content-Length", pdf.length);
+
+    res.end(pdf);
+  } catch (error) {
+    console.error("PDF generation failed:", error);
+
+    if (!res.headersSent) {
+      res.status(500).json({
+        message: "Failed to generate PDF",
+      });
+    }
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
+}

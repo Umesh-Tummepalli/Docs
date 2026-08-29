@@ -14,7 +14,7 @@ const app = express();
 const httpserver = createServer(app);
 export const io = new Server(httpserver, {
   cors: {
-     origin: "http://localhost:5173",
+     origin: process.env.FRONTEND_URL,
      credentials: true
    }
 });
@@ -24,7 +24,7 @@ app.use(cookieParser());
 // const configuredFrontendOrigin = process.env.FRONTEND_ORIGIN;
 
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: process.env.FRONTEND_URL,
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
 }))

@@ -24,6 +24,7 @@
     "mongoose": "^9.9.1",
     "prosemirror-model": "^1.25.11",
     "prosemirror-schema-basic": "^1.2.4",
+    "puppeteer": "^25.9.0",
     "sequelize": "^6.37.8",
     "socket.io": "^4.8.3",
     "uuid4": "^2.0.3",

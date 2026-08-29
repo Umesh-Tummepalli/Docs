@@ -1,6 +1,6 @@
 import express from 'express';
 import {basicAuthorisation,documentAuthorisation} from "../middlewares/authorisation.js"
-import { createDocument, getDocument, getDocumentAccess, getUsersDocuments, approveAccessRequest, denyAccessRequest, grantOwnerAccess, updateDocumentTitle, saveDocument, getImageUploadUrl, completeImageUpload, getAssetUrl, giveDocumentAccess } from '../controller/document.js';
+import { createDocument, getDocument, getDocumentAccess, getUsersDocuments, approveAccessRequest, denyAccessRequest, grantOwnerAccess, updateDocumentTitle, saveDocument, getImageUploadUrl, completeImageUpload, getAssetUrl, giveDocumentAccess, deleteDocument, convertToPdf } from '../controller/document.js';
 
 
 const router = express.Router();
@@ -30,5 +30,11 @@ router.get('/:documentId/image-upload-url', basicAuthorisation, documentAuthoris
 router.post('/:documentId/assets/:assetId/complete', basicAuthorisation, documentAuthorisation, completeImageUpload);
 
 router.get('/:documentId/asseturl/:assetId', basicAuthorisation, documentAuthorisation, getAssetUrl);
+
+router.delete('/:documentId', basicAuthorisation, documentAuthorisation, deleteDocument);
+
+
+router.post("/:documentId/convert/pdf", basicAuthorisation, documentAuthorisation, convertToPdf);
+
 
 export default router;

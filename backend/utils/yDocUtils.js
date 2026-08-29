@@ -83,7 +83,6 @@ export async function cleanUnusedAssets(docId, ydoc) {
       unusedAssets.map(async (asset) => {
         await deleteObject(asset.key);
         await DocumentAsset.deleteOne({ _id: asset._id });
-        console.log(`[cleanUnusedAssets] Deleted asset ${asset._id} (key: ${asset.key})`);
       })
     );
 
