@@ -1,110 +1,186 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditorContext } from "./context/EditorContext";
+import useYDoc from "./context/YDocContext";
 
 const PAGE_WIDTH = 794;
 const MIN_MARGIN = 24;
 const MIN_CONTENT_WIDTH = 240;
 const MARKER_COUNT = 83;
+const DEBOUNCE_MS = 300;
+
+const DEFAULT_LEFT = 48;
+const DEFAULT_RIGHT = 48;
 
 const markers = Array.from({ length: MARKER_COUNT }, (_, index) => index);
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
+/** Read margins from the yDoc metadata map, falling back to defaults. */
+function readMarginsFromMap(metaMap) {
+  const left = metaMap.get("marginLeft") ?? DEFAULT_LEFT;
+  const right = metaMap.get("marginRight") ?? DEFAULT_RIGHT;
+  return { left, right };
+}
+
+/** Apply margin values to CSS custom properties on :root. */
+function applyMarginsToCss(left, right) {
+  document.documentElement.style.setProperty("--page-margin-left", `${left}px`);
+  document.documentElement.style.setProperty("--page-margin-right", `${right}px`);
+}
+
 const Ruler = () => {
   const editor = useEditorContext();
+  const { yDoc, synced } = useYDoc();
+
   const rulerRef = useRef(null);
   const [activeHandle, setActiveHandle] = useState(null);
-  const [margins, setMargins] = useState({ left: 48, right: 48 });
-  const marginsRef = useRef({ left: 48, right: 48 });
+  const [margins, setMargins] = useState({ left: DEFAULT_LEFT, right: DEFAULT_RIGHT });
 
-  // Initialize default margins
+  // Always in sync with latest margins so drag callbacks never close over stale values.
+  const marginsRef = useRef({ left: DEFAULT_LEFT, right: DEFAULT_RIGHT });
+
+  // Debounce timer for writing to yDoc.
+  const debounceRef = useRef(null);
+
+  // Stable reference to the metadata map — created once per yDoc lifetime.
+  const metaMap = yDoc.getMap("metadata");
+
+  // ─── 1. Read initial state from yDoc once synced ─────────────────────────
   useEffect(() => {
-    document.documentElement.style.setProperty('--page-margin-left', `${margins.left}px`);
-    document.documentElement.style.setProperty('--page-margin-right', `${margins.right}px`);
-  }, []);
+    if (!synced) return;
 
-  const updateMargin = useCallback((side, clientX) => {
-    const ruler = rulerRef.current;
-    if (!ruler) return;
+    const { left, right } = readMarginsFromMap(metaMap);
+    marginsRef.current = { left, right };
+    setMargins({ left, right });
+    applyMarginsToCss(left, right);
+  }, [synced, metaMap]);
 
-    const rect = ruler.getBoundingClientRect();
-    const pointerX = clamp(clientX - rect.left, 0, PAGE_WIDTH);
+  // ─── 2. Observe yDoc map for remote changes ───────────────────────────────
+  useEffect(() => {
+    const handleMapChange = () => {
+      const { left, right } = readMarginsFromMap(metaMap);
 
-    let newLeft = marginsRef.current.left;
-    let newRight = marginsRef.current.right;
+      // Only update if the values actually changed to avoid unnecessary re-renders.
+      if (
+        left !== marginsRef.current.left ||
+        right !== marginsRef.current.right
+      ) {
+        marginsRef.current = { left, right };
+        setMargins({ left, right });
+        applyMarginsToCss(left, right);
+      }
+    };
 
-    if (side === "left") {
-      const maxLeft = PAGE_WIDTH - newRight - MIN_CONTENT_WIDTH;
-      newLeft = clamp(pointerX, MIN_MARGIN, maxLeft);
-    } else {
-      const proposedRight = PAGE_WIDTH - pointerX;
-      const maxRight = PAGE_WIDTH - newLeft - MIN_CONTENT_WIDTH;
-      newRight = clamp(proposedRight, MIN_MARGIN, maxRight);
-    }
+    metaMap.observe(handleMapChange);
+    return () => metaMap.unobserve(handleMapChange);
+  }, [metaMap]);
 
-    const updatedMargins = { left: newLeft, right: newRight };
-    marginsRef.current = updatedMargins;
-    setMargins(updatedMargins);
+  // ─── 3. Debounced write to yDoc ───────────────────────────────────────────
+  const scheduleYDocWrite = useCallback(
+    (left, right) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        // Batch into a single Y.js transaction so it emits one docUpdate event.
+        yDoc.transact(() => {
+          metaMap.set("marginLeft", left);
+          metaMap.set("marginRight", right);
+        });
+      }, DEBOUNCE_MS);
+    },
+    [yDoc, metaMap]
+  );
 
-    document.documentElement.style.setProperty('--page-margin-left', `${newLeft}px`);
-    document.documentElement.style.setProperty('--page-margin-right', `${newRight}px`);
-  }, []);
+  // ─── 4. Drag logic ────────────────────────────────────────────────────────
+  const updateMargin = useCallback(
+    (side, clientX) => {
+      const ruler = rulerRef.current;
+      if (!ruler) return;
 
-  const applyMarginsToEditor = useCallback(() => {
-    // Margins are now applied via CSS variables updated in updateMargin
-  }, []);
+      const rect = ruler.getBoundingClientRect();
+      const pointerX = clamp(clientX - rect.left, 0, PAGE_WIDTH);
 
-  // Robust inline Drag Handler
+      let newLeft = marginsRef.current.left;
+      let newRight = marginsRef.current.right;
+
+      if (side === "left") {
+        const maxLeft = PAGE_WIDTH - newRight - MIN_CONTENT_WIDTH;
+        newLeft = clamp(pointerX, MIN_MARGIN, maxLeft);
+      } else {
+        const proposedRight = PAGE_WIDTH - pointerX;
+        const maxRight = PAGE_WIDTH - newLeft - MIN_CONTENT_WIDTH;
+        newRight = clamp(proposedRight, MIN_MARGIN, maxRight);
+      }
+
+      const updated = { left: newLeft, right: newRight };
+      marginsRef.current = updated;
+      setMargins(updated);
+      applyMarginsToCss(newLeft, newRight);
+
+      // Schedule debounced write to yDoc so collaborators get the update.
+      scheduleYDocWrite(newLeft, newRight);
+    },
+    [scheduleYDocWrite]
+  );
+
   const startDragging = (side) => (event) => {
-    event.preventDefault(); // Prevent text selection
-    event.stopPropagation(); // Stop React's synthetic bubbling
-    
+    event.preventDefault();
+    event.stopPropagation();
+
     const target = event.currentTarget;
     const pointerId = event.pointerId;
 
-    // 1. Capture the pointer. This routes all mouse/touch events strictly 
-    // to this specific handle even if you drag completely outside the browser window.
     if (target.setPointerCapture) {
-      try {
-        target.setPointerCapture(pointerId);
-      } catch (e) {
-        // Safe fallback
-      }
+      try { target.setPointerCapture(pointerId); } catch (_) {}
     }
 
     setActiveHandle(side);
     updateMargin(side, event.clientX);
 
-    // 2. Define the move/up behaviors directly for this exact interaction
     const handlePointerMove = (e) => {
       if (e.pointerId !== pointerId) return;
-      e.preventDefault(); // Stop mobile scrolling during drag
+      e.preventDefault();
       updateMargin(side, e.clientX);
     };
 
     const handlePointerUp = (e) => {
       if (e.pointerId !== pointerId) return;
 
-      // 3. Immediately clean up event listeners when the interaction ends
       target.removeEventListener("pointermove", handlePointerMove);
       target.removeEventListener("pointerup", handlePointerUp);
       target.removeEventListener("pointercancel", handlePointerUp);
 
       if (target.releasePointerCapture) {
-        try { target.releasePointerCapture(pointerId); } catch (err) {}
+        try { target.releasePointerCapture(pointerId); } catch (_) {}
       }
 
-      applyMarginsToEditor();
+      // Flush debounce immediately on pointer up so the final position is
+      // written to yDoc right away rather than waiting the full debounce delay.
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      const { left, right } = marginsRef.current;
+      yDoc.transact(() => {
+        metaMap.set("marginLeft", left);
+        metaMap.set("marginRight", right);
+      });
+
       setActiveHandle(null);
     };
 
-    // 4. Attach the listeners directly to the captured target natively!
-    // This totally bypasses the React container's stopPropagation.
     target.addEventListener("pointermove", handlePointerMove);
     target.addEventListener("pointerup", handlePointerUp);
     target.addEventListener("pointercancel", handlePointerUp);
   };
 
+  // ─── 5. Cleanup debounce timer on unmount ─────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  // ─── 6. Render ────────────────────────────────────────────────────────────
   const renderMarginHandle = (side) => {
     const isLeft = side === "left";
     const position = isLeft ? margins.left : PAGE_WIDTH - margins.right;
@@ -114,14 +190,13 @@ const Ruler = () => {
         key={side}
         aria-label={`${side} margin`}
         className={`absolute bottom-0 z-10 h-6 w-4 -translate-x-1/2 cursor-ew-resize ${
-          activeHandle === side ? 'ring-2 ring-blue-500' : ''
+          activeHandle === side ? "ring-2 ring-blue-500" : ""
         }`}
-        style={{ 
-          left: `${position}px`, 
-          touchAction: "none", // CRUCIAL: Native CSS block to prevent mobile browser swiping/zooming on the handle
-          pointerEvents: "auto"
+        style={{
+          left: `${position}px`,
+          touchAction: "none",
+          pointerEvents: "auto",
         }}
-        // Just one universal event needed!
         onPointerDown={startDragging(side)}
       >
         <span
@@ -146,14 +221,14 @@ const Ruler = () => {
       <div
         ref={rulerRef}
         className="relative mx-auto h-full w-full"
-        onPointerDown={(e) => e.stopPropagation()} // This line caused your previous code's bug! (But it's totally safe with our new pattern)
+        onPointerDown={(e) => e.stopPropagation()}
       >
         <div
           className="absolute inset-y-0 bg-blue-100/60"
           style={{
             left: `${margins.left}px`,
             right: `${margins.right}px`,
-            pointerEvents: "none"
+            pointerEvents: "none",
           }}
         />
 
