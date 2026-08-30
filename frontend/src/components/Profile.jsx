@@ -82,7 +82,7 @@ export default function Profile() {
         </Card>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Link to="/doc"><Button className="w-full bg-gradient-to-r from-[#0b57d0] to-violet-600 text-white shadow-lg shadow-blue-200/60 transition-all hover:-translate-y-0.5 hover:shadow-xl sm:w-auto"><FileText className="mr-2 size-4" />My documents</Button></Link>
+          <Link to="/documents"><Button className="w-full bg-gradient-to-r from-[#0b57d0] to-violet-600 text-white shadow-lg shadow-blue-200/60 transition-all hover:-translate-y-0.5 hover:shadow-xl sm:w-auto"><FileText className="mr-2 size-4" />My documents</Button></Link>
           <Link to="/"><Button variant="outline" className="w-full border-slate-200 bg-white text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-200 hover:bg-violet-50/50 hover:shadow-md sm:w-auto"><BadgeCheck className="mr-2 size-4" />Back to WriteFlow</Button></Link>
         </div>
       </div>

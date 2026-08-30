@@ -1,15 +1,21 @@
 import express from 'express';
-import {basicAuthorisation,documentAuthorisation} from "../middlewares/authorisation.js"
-import { createDocument, getDocument, getDocumentAccess, getUsersDocuments, approveAccessRequest, denyAccessRequest, grantOwnerAccess, updateDocumentTitle, saveDocument, getImageUploadUrl, completeImageUpload, getAssetUrl, giveDocumentAccess, deleteDocument, convertToPdf } from '../controller/document.js';
+import { basicAuthorisation, documentAccessAuthorisation, documentAuthorisation } from "../middlewares/authorisation.js";
+import { createDocument, createDocumentAccessToken, deleteDocumentAccessToken, getDocument, getDocumentAccess, getDocumentAccessTokens, getUsersDocuments, approveAccessRequest, denyAccessRequest, grantOwnerAccess, updateDocumentTitle, saveDocument, getImageUploadUrl, completeImageUpload, getAssetUrl, giveDocumentAccess, deleteDocument, convertToPdf } from '../controller/document.js';
 
 
 const router = express.Router();
 
 router.post('/new', basicAuthorisation, createDocument);
 
-router.get('/:documentId', basicAuthorisation, documentAuthorisation, getDocument);
+router.get('/:documentId', documentAccessAuthorisation, getDocument);
 
-router.get('/:documentId/collab-token', basicAuthorisation, documentAuthorisation, giveDocumentAccess);
+router.get('/:documentId/collab-token', documentAccessAuthorisation, giveDocumentAccess);
+
+router.post('/:documentId/access-token', basicAuthorisation, documentAuthorisation, createDocumentAccessToken);
+
+router.get('/:documentId/access-tokens', basicAuthorisation, documentAuthorisation, getDocumentAccessTokens);
+
+router.delete('/:documentId/access-tokens/:accessTokenId', basicAuthorisation, documentAuthorisation, deleteDocumentAccessToken);
 
 router.post('/:documentId/access-request', basicAuthorisation, getDocumentAccess);
 
@@ -21,20 +27,20 @@ router.post('/:documentId/access/owner', basicAuthorisation, grantOwnerAccess);
 
 router.patch('/:documentId/title', basicAuthorisation, updateDocumentTitle);
 
-router.post('/:documentId/save', basicAuthorisation, documentAuthorisation, saveDocument);
+router.post('/:documentId/save', documentAccessAuthorisation, saveDocument);
 
 router.get('/', basicAuthorisation, getUsersDocuments);
 
-router.get('/:documentId/image-upload-url', basicAuthorisation, documentAuthorisation, getImageUploadUrl);
+router.get('/:documentId/image-upload-url', documentAccessAuthorisation, getImageUploadUrl);
 
-router.post('/:documentId/assets/:assetId/complete', basicAuthorisation, documentAuthorisation, completeImageUpload);
+router.post('/:documentId/assets/:assetId/complete', documentAccessAuthorisation, completeImageUpload);
 
-router.get('/:documentId/asseturl/:assetId', basicAuthorisation, documentAuthorisation, getAssetUrl);
+router.get('/:documentId/asseturl/:assetId', documentAccessAuthorisation, getAssetUrl);
 
-router.delete('/:documentId', basicAuthorisation, documentAuthorisation, deleteDocument);
+router.delete('/:documentId', documentAccessAuthorisation, deleteDocument);
 
 
-router.post("/:documentId/convert/pdf", basicAuthorisation, documentAuthorisation, convertToPdf);
+router.post("/:documentId/convert/pdf", documentAccessAuthorisation, convertToPdf);
 
 
 export default router;

@@ -1,5 +1,6 @@
 import redis from "../config/redis.js"
 import jwt from "jsonwebtoken"
+import crypto from "crypto";
 import puppeteer from "puppeteer";
 import * as Y from 'yjs';
 
@@ -7,6 +8,7 @@ import * as Y from 'yjs';
 import Document from "../models/documentModel.js"
 import DocumentAccess from "../models/documentAccessModel.js"
 import DocumentAccessRequest from "../models/documentAccessRequestModel.js"
+import DocumentAccessToken from "../models/documentAccessToken.js"
 import DocumentAsset from "../models/documentAssetModel.js"
 
 import { generateAccessUrl, generateUploadUrl, getObjectMetadata, deleteObject } from "../utils/s3.js";
@@ -86,6 +88,107 @@ export const getDocument = async (req, res) => {
   }
 };
 
+export const createDocumentAccessToken = async (req, res) => {
+  try {
+    const { documentId } = req.params;
+    const { id } = req.user;
+    const name = req.body?.name?.trim();
+    const { accessLevel } = req.body ?? {};
+
+    if (!name) {
+      return res.status(400).json({ message: 'Token name is required', success: false });
+    }
+    if (!['read', 'write'].includes(accessLevel)) {
+      return res.status(400).json({ message: 'Access level must be read or write', success: false });
+    }
+
+    const ownerAccess = await DocumentAccess.findOne({
+      documentId,
+      userId: id,
+      accessLevel: 'owner',
+    });
+    if (!ownerAccess) {
+      return res.status(403).json({ message: 'Only document owners can create access tokens', success: false });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const accessToken = await DocumentAccessToken.create({
+      name,
+      token,
+      documentId,
+      createdBy: id,
+      accessLevel,
+    });
+
+    return res.status(201).json({
+      message: 'Document access token created successfully',
+      token: accessToken.token,
+      name: accessToken.name,
+      accessLevel: accessToken.accessLevel,
+      success: true,
+    });
+  } catch (error) {
+    console.error('error from createDocumentAccessToken document.js', error);
+    return res.status(500).json({ message: 'Internal server error', success: false });
+  }
+};
+
+export const getDocumentAccessTokens = async (req, res) => {
+  try {
+    const { documentId } = req.params;
+    const { id } = req.user;
+
+    const ownerAccess = await DocumentAccess.findOne({
+      documentId,
+      userId: id,
+      accessLevel: 'owner',
+    });
+    if (!ownerAccess) {
+      return res.status(403).json({ message: 'Only document owners can view access tokens', success: false });
+    }
+
+    const tokens = await DocumentAccessToken
+      .find({ documentId })
+      .select('name token createdBy accessLevel createdAt updatedAt')
+      .populate('createdBy', 'username email')
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({ tokens, success: true });
+  } catch (error) {
+    console.error('error from getDocumentAccessTokens document.js', error);
+    return res.status(500).json({ message: 'Internal server error', success: false });
+  }
+};
+
+export const deleteDocumentAccessToken = async (req, res) => {
+  try {
+    const { documentId, accessTokenId } = req.params;
+    const { id } = req.user;
+
+    const ownerAccess = await DocumentAccess.findOne({
+      documentId,
+      userId: id,
+      accessLevel: 'owner',
+    });
+    if (!ownerAccess) {
+      return res.status(403).json({ message: 'Only document owners can delete access tokens', success: false });
+    }
+
+    const deletedToken = await DocumentAccessToken.findOneAndDelete({
+      _id: accessTokenId,
+      documentId,
+    });
+    if (!deletedToken) {
+      return res.status(404).json({ message: 'Access token not found', success: false });
+    }
+
+    return res.status(200).json({ message: 'Document access token deleted successfully', success: true });
+  } catch (error) {
+    console.error('error from deleteDocumentAccessToken document.js', error);
+    return res.status(500).json({ message: 'Internal server error', success: false });
+  }
+};
+
 export const giveDocumentAccess = async (req, res) => {
   try {
     const { documentId } = req.params;
@@ -161,14 +264,22 @@ export const getDocumentAccess = async (req, res) => {
 
     const existingRequest = await DocumentAccessRequest.findOne({ documentId, userId: id });
     if (existingRequest) {
+      if (existingRequest.accessLevel === accessLevel) {
+        return res.status(200).json({ message: 'Access request is already pending', success: true });
+      }
+
       existingRequest.accessLevel = accessLevel;
       await existingRequest.save();
-    } else {
-      await DocumentAccessRequest.create({ documentId, userId: id, accessLevel });
+      return res.status(200).json({ message: 'Access request updated successfully', success: true });
     }
 
+    await DocumentAccessRequest.create({ documentId, userId: id, accessLevel });
     return res.status(201).json({ message: 'Access request created successfully', success: true });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(200).json({ message: 'Access request is already pending', success: true });
+    }
+
     res.status(500).json({ message: 'Internal server error', success: false });
     console.error(error);
   }
@@ -322,7 +433,7 @@ export const imageHandler = async (req, res) => {
   try {
     const { id } = req.user;
     const { documentId } = req.params;
-    
+
   } catch (error) {
     res.status(500).json({ message: 'Internal server error', success: false });
     console.error("error from imageHandler document.js",error);

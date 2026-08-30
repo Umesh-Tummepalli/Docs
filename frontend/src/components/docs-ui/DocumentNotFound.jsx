@@ -30,7 +30,7 @@ const DocumentNotFound = () => {
         <div className="absolute bottom-32 right-10 opacity-10 animate-float-slower">
           <FileText className="w-24 h-24 text-violet-600 transform rotate-12" />
         </div>
-        
+
         {/* Grid pattern */}
         <div
           className="absolute inset-0 opacity-[0.03]"
@@ -56,7 +56,7 @@ const DocumentNotFound = () => {
       {/* Main Content */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 py-16">
         <div className="max-w-2xl mx-auto text-center space-y-8">
-          
+
           <div className="flex justify-center mb-8">
              <div className="relative">
                 <FileText className="w-32 h-32 text-slate-300" />
@@ -74,7 +74,7 @@ const DocumentNotFound = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
-            <Link to="/doc">
+            <Link to="/documents">
               <Button
                 size="lg"
                 className="w-full sm:w-auto bg-[#0b57d0] hover:bg-[#0b57d0]/90 text-white h-12 px-8 shadow-sm transition-all duration-300 group"

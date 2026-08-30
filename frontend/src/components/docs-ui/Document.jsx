@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import api from "@/lib/api";
 import Editor from "./Editior";import ToolBar from "./ToolBar";
@@ -71,7 +71,9 @@ const EditorView = ({ docId, editable }) => {
 
 export default function Document() {
   const { docId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
+  const hasShareAccessToken = new URLSearchParams(location.search).has("access");
   const [status, setStatus] = useState("loading");
   const [docData, setDocData] = useState(null);
   const [isRequestingWrite, setIsRequestingWrite] = useState(false);
@@ -100,7 +102,7 @@ export default function Document() {
         setStatus("access-denied");
       } else {
         toast.error("Something went wrong");
-        navigate("/doc");
+        navigate("/documents");
       }
       console.error(error);
       return false;
@@ -111,13 +113,14 @@ export default function Document() {
     fetchContent();
   }, [fetchContent]);
 
-  const requestWriteAccess = async () => {
+  const requestPermanentAccess = async (accessLevel) => {
     try {
       setIsRequestingWrite(true);
-      const response = await api.post(`/documents/${docId}/access-request`, { accessLevel: "write" });
-      toast.success(response.data?.message || "Write-access request sent to the owner.");
+      const response = await api.post(`/documents/${docId}/access-request`, { accessLevel });
+      const accessLabel = accessLevel === "write" ? "write" : "view";
+      toast.success(response.data?.message || `Permanent ${accessLabel} access request sent to the owner.`);
     } catch (error) {
-      toast.error(error.response?.data?.message || "Unable to request write access.");
+      toast.error(error.response?.data?.message || "Unable to request permanent access.");
     } finally {
       setIsRequestingWrite(false);
     }
@@ -194,12 +197,24 @@ export default function Document() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {docData?.accessLevel === "read" && (
+          {hasShareAccessToken && ["read", "write"].includes(docData?.accessLevel) ? (
             <Button
               type="button"
               size="sm"
               variant="outline"
-              onClick={requestWriteAccess}
+              onClick={() => requestPermanentAccess(docData.accessLevel)}
+              disabled={isRequestingWrite}
+              className="border-blue-200 text-[#0b57d0] hover:bg-blue-50 hover:text-[#0b57d0]"
+            >
+              {isRequestingWrite ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Edit3 className="mr-1.5 size-4" />}
+              Ask for permanent access
+            </Button>
+          ) : docData?.accessLevel === "read" && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => requestPermanentAccess("write")}
               disabled={isRequestingWrite}
               className="border-blue-200 text-[#0b57d0] hover:bg-blue-50 hover:text-[#0b57d0]"
             >

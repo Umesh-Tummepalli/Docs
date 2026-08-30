@@ -35,7 +35,8 @@ export const YDocProvider = ({ docId, children }) => {
 
     async function connect() {
       try {
-        // 1. Fetch a short-lived collab token for this document.
+        // 1. Fetch a short-lived collab token for this document. The shared API
+        // client attaches a share-link access token when one is present.
         const tokenRes = await api.get(`/documents/${docId}/collab-token`);
         const { token } = tokenRes.data;
 
@@ -46,7 +47,7 @@ export const YDocProvider = ({ docId, children }) => {
         const prov = new SocketIOYProvider({
           docId,
           token,
-          serverUrl: import.meta.env.VITE_BACKEND_URL || "http://localhost:8000",
+          serverUrl: import.meta.env.VITE_BACKEND_API_URL || "http://localhost:8000",
           ydoc: yDoc,
         });
 

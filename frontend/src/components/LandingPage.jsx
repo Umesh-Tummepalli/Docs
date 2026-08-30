@@ -68,10 +68,10 @@ const DocsLanding = () => {
         
         <div className="relative max-w-4xl mx-auto space-y-8">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-50 border border-blue-200 rounded-full text-blue-700 text-sm font-medium animate-fade-in">
+          {/* <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-50 border border-blue-200 rounded-full text-blue-700 text-sm font-medium animate-fade-in">
             <Sparkles className="w-4 h-4" />
             Now available for teams
-          </div>
+          </div>*/}
           
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-slate-900 leading-[1.1]">
             Your best work, <br className="hidden sm:block" />

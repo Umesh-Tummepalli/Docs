@@ -19,4 +19,6 @@ const DocumentAccessRequestSchema = new mongoose.Schema({
   },
 });
 
+DocumentAccessRequestSchema.index({ documentId: 1, userId: 1 }, { unique: true });
+
 export default mongoose.model('DocumentAccessRequest', DocumentAccessRequestSchema);

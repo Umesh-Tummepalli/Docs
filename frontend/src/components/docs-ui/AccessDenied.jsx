@@ -59,7 +59,7 @@ const AccessDenied = ({ docId }) => {
               </Button>
             </div>
 
-            <Link to="/doc" className="inline-flex items-center text-sm font-semibold text-[#0b57d0] transition-colors hover:text-[#0b57d0]/90 hover:underline">
+            <Link to="/documents" className="inline-flex items-center text-sm font-semibold text-[#0b57d0] transition-colors hover:text-[#0b57d0]/90 hover:underline">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to documents
             </Link>
