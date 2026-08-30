@@ -1,6 +1,6 @@
 import express from 'express';
 import { basicAuthorisation, documentAccessAuthorisation, documentAuthorisation } from "../middlewares/authorisation.js";
-import { createDocument, createDocumentAccessToken, deleteDocumentAccessToken, getDocument, getDocumentAccess, getDocumentAccessTokens, getUsersDocuments, approveAccessRequest, denyAccessRequest, grantOwnerAccess, updateDocumentTitle, saveDocument, getImageUploadUrl, completeImageUpload, getAssetUrl, giveDocumentAccess, deleteDocument, convertToPdf } from '../controller/document.js';
+import { createDocument, createDocumentAccessToken, deleteDocumentAccessToken, getDocument, getDocumentAccess, getDocumentAccessTokens, getUsersDocuments, approveAccessRequest, denyAccessRequest, grantOwnerAccess, removeDocumentUserAccess, updateDocumentTitle, updateDocumentUserAccess, saveDocument, getImageUploadUrl, completeImageUpload, getAssetUrl, giveDocumentAccess, deleteDocument, convertToPdf } from '../controller/document.js';
 
 
 const router = express.Router();
@@ -24,6 +24,10 @@ router.post('/:documentId/access-request/approve', basicAuthorisation, approveAc
 router.post('/:documentId/access-request/deny', basicAuthorisation, denyAccessRequest);
 
 router.post('/:documentId/access/owner', basicAuthorisation, grantOwnerAccess);
+
+router.patch('/:documentId/access/:userId', basicAuthorisation, updateDocumentUserAccess);
+
+router.delete('/:documentId/access/:userId', basicAuthorisation, removeDocumentUserAccess);
 
 router.patch('/:documentId/title', basicAuthorisation, updateDocumentTitle);
 

@@ -374,6 +374,69 @@ export const grantOwnerAccess = async (req, res) => {
   }
 };
 
+export const updateDocumentUserAccess = async (req, res) => {
+  try {
+    const { id } = req.user;
+    const { documentId, userId } = req.params;
+    const { accessLevel } = req.body;
+
+    if (!['read', 'write', 'owner'].includes(accessLevel)) {
+      return res.status(400).json({ message: 'Invalid access level', success: false });
+    }
+
+    const requesterAccess = await DocumentAccess.findOne({ documentId, userId: id });
+    if (!requesterAccess || requesterAccess.accessLevel !== 'owner') {
+      return res.status(403).json({ message: 'Only document owners can change access', success: false });
+    }
+
+    const targetAccess = await DocumentAccess.findOne({ documentId, userId });
+    if (!targetAccess) {
+      return res.status(404).json({ message: 'User does not have document access', success: false });
+    }
+    if (targetAccess.accessLevel === 'owner' && accessLevel !== 'owner') {
+      return res.status(403).json({ message: 'Owner access cannot be downgraded', success: false });
+    }
+
+    targetAccess.accessLevel = accessLevel;
+    await targetAccess.save();
+
+    return res.status(200).json({
+      message: 'Document access updated successfully',
+      accessLevel: targetAccess.accessLevel,
+      success: true,
+    });
+  } catch (error) {
+    console.error('error from updateDocumentUserAccess document.js', error);
+    return res.status(500).json({ message: 'Internal server error', success: false });
+  }
+};
+
+export const removeDocumentUserAccess = async (req, res) => {
+  try {
+    const { id } = req.user;
+    const { documentId, userId } = req.params;
+
+    const requesterAccess = await DocumentAccess.findOne({ documentId, userId: id });
+    if (!requesterAccess || requesterAccess.accessLevel !== 'owner') {
+      return res.status(403).json({ message: 'Only document owners can remove access', success: false });
+    }
+
+    const targetAccess = await DocumentAccess.findOne({ documentId, userId });
+    if (!targetAccess) {
+      return res.status(404).json({ message: 'User does not have document access', success: false });
+    }
+    if (targetAccess.accessLevel === 'owner') {
+      return res.status(403).json({ message: 'Owner access cannot be removed', success: false });
+    }
+
+    await targetAccess.deleteOne();
+    return res.status(200).json({ message: 'Document access removed successfully', success: true });
+  } catch (error) {
+    console.error('error from removeDocumentUserAccess document.js', error);
+    return res.status(500).json({ message: 'Internal server error', success: false });
+  }
+};
+
 export const updateDocumentTitle = async (req, res) => {
   try {
     const { id } = req.user;
