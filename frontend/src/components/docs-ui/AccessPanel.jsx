@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from "react";
 import {
-
   Check,
   ChevronDown,
   Clock,
@@ -85,7 +84,6 @@ const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate }) 
     }
   }, [docId]);
 
-
   const handleRefresh = async () => {
     try {
       setIsRefreshing(true);
@@ -130,7 +128,6 @@ const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate }) 
       toast.error("This share link cannot be revoked because its ID is unavailable");
       return;
     }
-
 
     try {
       setLoadingAction(`revoke-${accessTokenId}`);
@@ -208,7 +205,6 @@ const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate }) 
     return "Can view";
   };
 
-
   return (
     <Sheet open={isOpen} onOpenChange={(open) => {
       setIsOpen(open);
@@ -236,6 +232,7 @@ const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate }) 
         </div>
 
         <div className="space-y-7 p-6">
+          {/* Share with link section */}
           <section className="space-y-3">
             <div><h3 className="text-sm font-semibold text-slate-800">Share with a link</h3><p className="mt-1 text-xs leading-5 text-slate-500">Name the link, then choose the permission you want to share.</p></div>
             <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-700">Link name</span><input ref={linkNameInputRef} type="text" value={linkName} onChange={(event) => setLinkName(event.target.value)} maxLength={100} placeholder="e.g. Design review team" disabled={loadingAction !== null} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:cursor-wait disabled:opacity-60" /></label>
@@ -249,28 +246,168 @@ const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate }) 
             </div>
           </section>
 
+          {/* Active links section */}
           <section className="space-y-3">
             <div className="flex items-center justify-between"><div><h3 className="text-sm font-semibold text-slate-800">Active links</h3><p className="mt-1 text-xs text-slate-500">Copy a specific link whenever you need it.</p></div><Badge variant="secondary" className="bg-slate-200/70 text-slate-600">{accessTokens.length}</Badge></div>
             {isLoadingTokens ? <div className="flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-7 text-sm text-slate-500"><Loader2 className="mr-2 size-4 animate-spin" />Loading links</div> : accessTokens.length > 0 ? <div className="space-y-2">{accessTokens.map((item, index) => { const level = getAccessLevel(item); const token = getTokenValue(item); const accessTokenId = item?._id || item?.id; const linkName = item?.name || item?.label || getRoleLabel(level); return <div key={accessTokenId || token || index} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm"><span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${level === "write" ? "bg-blue-50" : "bg-slate-100"}`}>{getRoleIcon(level)}</span><div className="min-w-0 flex-1"><p className="text-sm font-medium text-slate-800">{linkName} link</p><p className="truncate text-xs text-slate-500">{token ? getShareUrl(token) : "Link token unavailable"}</p></div><div className="flex shrink-0 items-center"><Button type="button" size="icon" variant="ghost" disabled={!token} onClick={() => copyToClipboard(getShareUrl(token))} className="size-8 text-slate-500 hover:bg-slate-100 hover:text-slate-900"><Copy className="size-4" /><span className="sr-only">Copy {getRoleLabel(level)} link</span></Button><Button type="button" size="icon" variant="ghost" disabled={!accessTokenId || loadingAction !== null} onClick={() => setConfirmation({ type: "revoke-link", id: accessTokenId, name: linkName })} className="size-8 text-slate-400 hover:bg-red-50 hover:text-red-600"><span className="sr-only">Revoke {linkName} link</span>{loadingAction === `revoke-${accessTokenId}` ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}</Button></div></div>; })}</div> : <div className="rounded-xl border border-dashed border-slate-200 bg-white px-5 py-7 text-center"><LinkIcon className="mx-auto mb-2 size-5 text-slate-400" /><p className="text-sm font-medium text-slate-600">No share links yet</p><p className="mt-1 text-xs text-slate-400">Create a view or edit link above.</p></div>}
           </section>
 
-          {accessRequests.length > 0 && <><Separator /><section className="space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div><h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800"><Clock className="size-4 text-amber-500" />Pending requests</h3><p className="mt-1 text-xs text-slate-500">Approve each request with the access level you want to give.</p></div>
-              <Badge className="border-amber-200 bg-amber-50 text-amber-700" variant="outline">{accessRequests.length} pending</Badge>
-            </div>
-            <div className="space-y-3">{accessRequests.map((request) => <div key={request._id} className="rounded-xl border border-amber-100 bg-linear-to-br from-amber-50/80 to-white p-4 shadow-sm">
-              <div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center rounded-full bg-amber-100 font-semibold text-amber-700 ring-4 ring-amber-50">{request.userId?.username?.charAt(0).toUpperCase() || "?"}</div><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{request.userId?.username || "Unknown user"}</p><p className="truncate text-xs text-slate-500">{request.userId?.email || "No email"}</p></div></div>
-              <div className="mt-4 grid grid-cols-[1fr_1fr_auto] gap-2"><Button size="sm" onClick={() => handleApprove(request._id, "read")} disabled={loadingAction !== null} className="h-9 bg-emerald-600 text-xs hover:bg-emerald-700">{loadingAction === `approve-${request._id}-read` ? <Loader2 className="size-3.5 animate-spin" /> : <><Eye className="mr-1.5 size-3.5" />Give view</>}</Button><Button size="sm" onClick={() => handleApprove(request._id, "write")} disabled={loadingAction !== null} className="h-9 bg-blue-600 text-xs hover:bg-blue-700">{loadingAction === `approve-${request._id}-write` ? <Loader2 className="size-3.5 animate-spin" /> : <><Edit3 className="mr-1.5 size-3.5" />Give edit</>}</Button><Button size="icon" variant="outline" onClick={() => handleDeny(request._id)} disabled={loadingAction !== null} className="size-9 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700">{loadingAction === `deny-${request._id}` ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-4" />}<span className="sr-only">Deny request</span></Button></div>
-            </div>)}</div>
-          </section></>}
+          {/* Pending requests section - Now with IDENTICAL styling to People with access */}
+          {accessRequests.length > 0 && (
+            <>
+              <Separator />
+              <section className="space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                      <Clock className="size-4 text-amber-500" />
+                      Pending requests
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Review and approve collaborator requests.
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="bg-amber-100 font-medium text-amber-700">
+                    {accessRequests.length}
+                  </Badge>
+                </div>
+
+                <div className="space-y-2.5">
+                  {accessRequests.map((request) => {
+                    const requestedLevel = request.accessLevel || "write";
+                    const isApproving = loadingAction?.startsWith(`approve-${request._id}`);
+                    const isBusy = loadingAction !== null;
+
+                    return (
+                      <div
+                        key={request._id}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition-shadow hover:shadow-md"
+                      >
+                        {/* Left side - Avatar and user info - IDENTICAL to People with access */}
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-100 font-semibold text-amber-700">
+                            {request.userId?.username?.charAt(0).toUpperCase() || "?"}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p title={request.userId?.username || "Unknown user"} className="text-sm font-semibold text-slate-900 break-words">
+                              {request.userId?.username || "Unknown user"}
+                            </p>
+                            <p title={request.userId?.email || "No email"} className="truncate text-xs text-slate-500">
+                              {request.userId?.email || "No email"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Right side - Badge above buttons, compact and clean */}
+                        <div className="flex shrink-0 flex-col items-end gap-1.5">
+                          <Badge
+                            variant="outline"
+                            className="border-amber-200 bg-amber-50 px-1.5 py-0 text-[10px] font-medium text-amber-700"
+                          >
+                            {requestedLevel === "write" ? "Edit requested" : "View requested"}
+                          </Badge>
+
+                          <div className="flex items-center gap-1.5">
+                            <div className="inline-flex rounded-lg shadow-none">
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={isBusy}
+                                onClick={() => handleApprove(request._id, requestedLevel)}
+                                className="h-8 rounded-l-lg rounded-r-none bg-blue-600 px-2.5 text-xs font-medium text-white shadow-none hover:bg-blue-700 focus-visible:z-10"
+                              >
+                                {isApproving ? (
+                                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                                ) : (
+                                  <Check className="mr-1.5 size-3.5" />
+                                )}
+                                Approve
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    disabled={isBusy}
+                                    className="size-8 rounded-l-none rounded-r-lg border-l border-blue-500/80 bg-blue-600 px-0 text-white shadow-none hover:bg-blue-700 focus-visible:z-10"
+                                    title="Approve with specific permission"
+                                  >
+                                    <ChevronDown className="size-3.5" />
+                                    <span className="sr-only">Approve with specific permission</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="end"
+                                  sideOffset={6}
+                                  className="min-w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/70 ring-0"
+                                >
+                                  <DropdownMenuLabel className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                    Approve access
+                                  </DropdownMenuLabel>
+                                  <DropdownMenuItem
+                                    onSelect={() => handleApprove(request._id, "read")}
+                                    className="gap-2.5 rounded-lg px-2 py-2 text-slate-700 focus:bg-slate-100 focus:text-slate-800"
+                                  >
+                                    <span className="flex size-6 items-center justify-center rounded-md bg-slate-100">
+                                      <Eye className="size-3.5 text-slate-600" />
+                                    </span>
+                                    <div className="flex flex-col">
+                                      <span className="text-xs font-medium">Can view</span>
+                                      <span className="text-[11px] text-slate-400">Read-only access</span>
+                                    </div>
+                                    {requestedLevel === "read" && (
+                                      <Check className="ml-auto size-4 text-slate-500" />
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={() => handleApprove(request._id, "write")}
+                                    className="gap-2.5 rounded-lg px-2 py-2 text-slate-700 focus:bg-blue-50 focus:text-blue-700"
+                                  >
+                                    <span className="flex size-6 items-center justify-center rounded-md bg-blue-50">
+                                      <Edit3 className="size-3.5 text-blue-600" />
+                                    </span>
+                                    <div className="flex flex-col">
+                                      <span className="text-xs font-medium">Can edit</span>
+                                      <span className="text-[11px] text-slate-400">Can make changes</span>
+                                    </div>
+                                    {requestedLevel === "write" && (
+                                      <Check className="ml-auto size-4 text-blue-600" />
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator className="my-1 bg-slate-100" />
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    onSelect={() => handleDeny(request._id)}
+                                    className="gap-2.5 rounded-lg px-2 py-2 text-red-600 focus:bg-red-50 focus:text-red-700"
+                                  >
+                                    <span className="flex size-6 items-center justify-center rounded-md bg-red-50">
+                                      <X className="size-3.5 text-red-600" />
+                                    </span>
+                                    <span className="text-xs font-medium">Deny request</span>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+
+
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            </>
+          )}
 
           <Separator />
+          
+          {/* People with access section */}
           <section className="space-y-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800"><UserPlus className="size-4 text-blue-500" />People with access</h3>
-                <p className="mt-1 text-xs text-slate-500">Choose Edit or Owner for each collaborator.</p>
+                <p className="mt-1 text-xs text-slate-500">Manage permissions and roles for each collaborator.</p>
               </div>
               <Badge variant="secondary" className="bg-slate-200/70 text-slate-600">{accessList.length}</Badge>
             </div>
@@ -279,31 +416,73 @@ const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate }) 
                 const userId = access.userId?._id || access.userId;
                 const isOwner = access.accessLevel === "owner";
                 const isUpdating = loadingAction?.startsWith(`access-${userId}-`);
-                return <div key={access._id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition-shadow hover:shadow-md">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className={`flex size-10 shrink-0 items-center justify-center rounded-full font-semibold ${isOwner ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>{access.userId?.username?.charAt(0).toUpperCase() || "?"}</div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-900">{access.userId?.username || "Unknown user"}</p>
-                      <p className="truncate text-xs text-slate-500">{access.userId?.email || "No email"}</p>
+                return (
+                  <div key={access._id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition-shadow hover:shadow-md">
+                    {/* Left side - Avatar and user info */}
+                    <div className="flex min-w-0 items-center gap-3 flex-1">
+                      <div className={`flex size-10 shrink-0 items-center justify-center rounded-full font-semibold ${isOwner ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                        {access.userId?.username?.charAt(0).toUpperCase() || "?"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p title={access.userId?.username || "Unknown user"} className="truncate text-sm font-semibold text-slate-900">{access.userId?.username || "Unknown user"}</p>
+                        <p title={access.userId?.email || "No email"} className="truncate text-xs text-slate-500">{access.userId?.email || "No email"}</p>
+                      </div>
+                    </div>
+
+                    {/* Right side - Actions */}
+                    <div className="flex shrink-0 items-center gap-1">
+                      {isOwner ? (
+                        <Badge variant="outline" className="shrink-0 border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-700">
+                          <Shield className="mr-1 size-3.5" />Owner
+                        </Badge>
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={loadingAction !== null}
+                              className="h-8 shrink-0 rounded-lg border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 shadow-none hover:border-slate-300 hover:bg-slate-50"
+                            >
+                              {isUpdating ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                              ) : (
+                                <>
+                                  {getRoleIcon(access.accessLevel)}
+                                  <span className="ml-1.5">{getRoleLabel(access.accessLevel)}</span>
+                                  <ChevronDown className="ml-1.5 size-3.5 text-slate-400" />
+                                </>
+                              )}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" sideOffset={6} className="min-w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/70 ring-0">
+                            <DropdownMenuLabel className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Change access</DropdownMenuLabel>
+                            <DropdownMenuItem disabled={access.accessLevel === "read"} onSelect={() => handleChangeAccessLevel(userId, "read")} className="gap-2.5 rounded-lg px-2 py-2 text-slate-700 focus:bg-slate-100 focus:text-slate-800 data-disabled:opacity-100">
+                              <span className="flex size-6 items-center justify-center rounded-md bg-slate-100"><Eye className="size-3.5 text-slate-600" /></span>
+                              <span>Can view</span>
+                              {access.accessLevel === "read" && <Check className="ml-auto size-4 text-slate-500" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled={access.accessLevel === "write"} onSelect={() => handleChangeAccessLevel(userId, "write")} className="gap-2.5 rounded-lg px-2 py-2 text-slate-700 focus:bg-blue-50 focus:text-blue-700 data-disabled:opacity-100">
+                              <span className="flex size-6 items-center justify-center rounded-md bg-blue-50"><Edit3 className="size-3.5 text-blue-600" /></span>
+                              <span>Can edit</span>
+                              {access.accessLevel === "write" && <Check className="ml-auto size-4 text-blue-600" />}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleChangeAccessLevel(userId, "owner")} className="gap-2.5 rounded-lg px-2 py-2 text-amber-700 focus:bg-amber-50 focus:text-amber-800">
+                              <span className="flex size-6 items-center justify-center rounded-md bg-amber-50"><Shield className="size-3.5 text-amber-500" /></span>
+                              <span>Make owner</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="my-1 bg-slate-100" />
+                            <DropdownMenuItem variant="destructive" onSelect={() => setConfirmation({ type: "remove-access", id: userId, name: access.userId?.username })} className="gap-2.5 rounded-lg px-2 py-2">
+                              <span className="flex size-6 items-center justify-center rounded-md bg-red-50"><Trash2 className="size-3.5 text-red-600" /></span>
+                              <span>Remove access</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   </div>
-                  {isOwner ? <Badge variant="outline" className="shrink-0 border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-700"><Shield className="mr-1 size-3.5" />Owner</Badge> : <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button type="button" size="sm" variant="outline" disabled={loadingAction !== null} className="h-8 shrink-0 rounded-lg border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-700 shadow-none hover:border-slate-300 hover:bg-white">
-                        {isUpdating ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : getRoleIcon(access.accessLevel)}
-                        <span className="ml-1.5">{getRoleLabel(access.accessLevel)}</span><ChevronDown className="ml-1.5 size-3.5 text-slate-400" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" sideOffset={6} className="min-w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-200/70 ring-0">
-                      <DropdownMenuLabel className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Change access</DropdownMenuLabel>
-                      <DropdownMenuItem disabled={access.accessLevel === "read"} onSelect={() => handleChangeAccessLevel(userId, "read")} className="gap-2.5 rounded-lg px-2 py-2 text-slate-700 focus:bg-slate-100 focus:text-slate-800 data-disabled:opacity-100"><span className="flex size-6 items-center justify-center rounded-md bg-slate-100"><Eye className="size-3.5 text-slate-600" /></span><span>Can view</span>{access.accessLevel === "read" && <Check className="ml-auto size-4 text-slate-500" />}</DropdownMenuItem>
-                      <DropdownMenuItem disabled={access.accessLevel === "write"} onSelect={() => handleChangeAccessLevel(userId, "write")} className="gap-2.5 rounded-lg px-2 py-2 text-slate-700 focus:bg-blue-50 focus:text-blue-700 data-disabled:opacity-100"><span className="flex size-6 items-center justify-center rounded-md bg-blue-50"><Edit3 className="size-3.5 text-blue-600" /></span><span>Can edit</span>{access.accessLevel === "write" && <Check className="ml-auto size-4 text-blue-600" />}</DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => handleChangeAccessLevel(userId, "owner")} className="gap-2.5 rounded-lg px-2 py-2 text-amber-700 focus:bg-amber-50 focus:text-amber-800"><span className="flex size-6 items-center justify-center rounded-md bg-amber-50"><Shield className="size-3.5 text-amber-500" /></span><span>Make owner</span></DropdownMenuItem>
-                      <DropdownMenuSeparator className="my-1 bg-slate-100" />
-                      <DropdownMenuItem variant="destructive" onSelect={() => setConfirmation({ type: "remove-access", id: userId, name: access.userId?.username })} className="gap-2.5 rounded-lg px-2 py-2"><span className="flex size-6 items-center justify-center rounded-md bg-red-50"><Trash2 className="size-3.5 text-red-600" /></span><span>Remove access</span></DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>}
-                </div>;
+                );
               })}
             </div> : <p className="rounded-xl border border-dashed border-slate-200 bg-white py-6 text-center text-sm text-slate-500">No people have access yet.</p>}
           </section>

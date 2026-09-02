@@ -59,10 +59,12 @@ const EditorView = ({ docId, editable }) => {
   }
 
   return (
-    <div className="min-h-screen mt-4">
+    <div className="min-h-screen">
       <EditorContext.Provider value={editor}>
-        {editable && <ToolBar docId={docId} />}
-        <Ruler />
+        <div className="sticky top-0 z-50 bg-[#f9fbfd] pt-4 pb-2 w-full border-b border-transparent">
+          {editable && <ToolBar docId={docId} />}
+          <Ruler />
+        </div>
         <Editor />
       </EditorContext.Provider>
     </div>

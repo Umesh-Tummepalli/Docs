@@ -165,8 +165,6 @@ io.on("connection", (socket) => {
     if (!room || room.size === 0) {
       const finalState = activeDocuments.get(docId);
       activeDocuments.delete(docId);
-      console.log(`Cleaned up collaboration state for ${docId}`);
-
       if (finalState) {
         await onRoomEmpty(docId, finalState.ydoc).catch((err) =>
           console.error(`onRoomEmpty failed for ${docId}:`, err)

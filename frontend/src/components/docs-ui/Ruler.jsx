@@ -216,7 +216,7 @@ const Ruler = () => {
   return (
     <div
       className="z-40 h-7 border-b border-gray-300 bg-white select-none print:hidden mx-auto mt-2"
-      style={{ position: "sticky", top: "72px", width: `${PAGE_WIDTH}px` }}
+      style={{ width: `${PAGE_WIDTH}px` }}
     >
       <div
         ref={rulerRef}
