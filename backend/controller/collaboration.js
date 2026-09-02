@@ -1,7 +1,6 @@
 import jwt from "jsonwebtoken";
 import { io } from "../main.js";
 import * as Y from "yjs";
-import fs from "fs";
 
 import {
   Awareness,
@@ -10,9 +9,10 @@ import {
   removeAwarenessStates,
 } from "y-protocols/awareness";
 import Document from "../models/documentModel.js";
-import { extractImagesFromYDoc, cleanUnusedAssets } from "../utils/yDocUtils.js";
+import eventualDocumentFlush from "../utils/saveDocuments.js";
+import { documentSavingQueue, cleanAssetsQueue } from "../background-jobs/queue.js";
 
-// docId → { ydoc: Y.Doc, awareness: Awareness }
+// docId → { ydoc: Y.Doc, awareness: Awareness, saveScheduled: boolean }
 const activeDocuments = new Map();
 
 // ── Auth middleware ──────────────────────────────────────────────────────────
@@ -25,7 +25,6 @@ io.use((socket, next) => {
     socket.data.docId = payload.docId;
     socket.data.accessLevel = payload.accessLevel;
     // Set of Y.js clientIDs whose awareness state arrived via this socket.
-    // Populated incrementally as awarenessUpdate events come in.
     socket.data.awarenessClientIds = new Set();
     next();
   } catch {
@@ -62,7 +61,9 @@ io.on("connection", (socket) => {
         // One Awareness instance per document, shared by all sockets in the room.
         const awareness = new Awareness(ydoc);
 
-        documentState = { ydoc, awareness };
+        // saveScheduled: true → content matches DB, no flush needed yet.
+        // It is flipped to false whenever a docUpdate arrives.
+        documentState = { ydoc, awareness, saveScheduled: true };
         activeDocuments.set(docId, documentState);
       }
 
@@ -74,11 +75,9 @@ io.on("connection", (socket) => {
       socket.emit("docSync", Y.encodeStateAsUpdate(ydoc));
 
       // ── Send existing awareness states to the newly joined client ─────────
-      // This lets the new client immediately see cursors that are already active.
       const existingClientIds = Array.from(awareness.getStates().keys());
       if (existingClientIds.length > 0) {
         const awarenessUpdate = encodeAwarenessUpdate(awareness, existingClientIds);
-        // Socket.IO will serialise Uint8Array as binary — client receives it as-is.
         socket.emit("awarenessUpdate", awarenessUpdate);
       }
 
@@ -92,17 +91,18 @@ io.on("connection", (socket) => {
   // ─────────────────────────────────────────
 
   socket.on("docUpdate", (data) => {
-    // Use server-verified docId and accessLevel — never trust client payload.
     const { docId, accessLevel } = socket.data;
     if (!docId || accessLevel === "read") return;
 
     const documentState = activeDocuments.get(docId);
     if (!documentState) return;
 
-    // data is a raw byte array (Array<number>) sent by the client.
     Y.applyUpdate(documentState.ydoc, new Uint8Array(data));
 
-    // Broadcast raw bytes to everyone else in the room.
+    // Mark as modified so the next flush cycle picks it up.
+    documentState.saveScheduled = false;
+
+    // Broadcast to everyone else in the room.
     socket.to(docId).emit("docUpdate", data);
   });
 
@@ -119,22 +119,16 @@ io.on("connection", (socket) => {
 
     const { awareness } = documentState;
 
-    // Snapshot the known clientIds before applying so we can detect new ones.
     const knownBefore = new Set(awareness.getStates().keys());
 
-    // Apply to the server's in-memory Awareness — keeps the server state
-    // authoritative for newly joining clients.
     applyAwarenessUpdate(awareness, new Uint8Array(data), socket);
 
-    // Track any new clientIds that appeared in this update so we can clean
-    // them up correctly when this socket disconnects.
     for (const clientId of awareness.getStates().keys()) {
       if (!knownBefore.has(clientId)) {
         socket.data.awarenessClientIds.add(clientId);
       }
     }
 
-    // Broadcast raw bytes to everyone else in the room.
     socket.to(docId).emit("awarenessUpdate", data);
   });
 
@@ -151,16 +145,13 @@ io.on("connection", (socket) => {
       const { awareness } = documentState;
       const clientIds = Array.from(awarenessClientIds);
 
-      // Remove this client's cursor state from the server's Awareness.
       removeAwarenessStates(awareness, clientIds, "disconnect");
 
-      // Broadcast the removal so other clients hide the departed cursor(s).
       const removalUpdate = encodeAwarenessUpdate(awareness, clientIds);
       socket.to(docId).emit("awarenessUpdate", removalUpdate);
     }
 
-    // Remove Y.Doc + Awareness from memory when the room is empty,
-    // then call the hook so you can add persistence logic later.
+    // If the room is now empty, save the final state and schedule cleanup.
     const room = io.sockets.adapter.rooms.get(docId);
     if (!room || room.size === 0) {
       const finalState = activeDocuments.get(docId);
@@ -176,17 +167,42 @@ io.on("connection", (socket) => {
 
 // ── Room-empty hook ──────────────────────────────────────────────────────────
 // Called once when the last connection leaves a document room.
-// Persists the final Y.Doc state and removes any assets that were deleted
-// during the session (S3 object + DocumentAsset record).
+//   1. Cancel any pending periodic flush job for this document.
+//   2. Save the final Y.Doc state directly to MongoDB (immediate, authoritative).
+//   3. Schedule a clean_assets job so unused S3 objects are purged asynchronously.
 async function onRoomEmpty(docId, ydoc) {
+  // 1. Remove the periodic flush job if it is still waiting — we are about
+  //    to do a definitive save, so running it later would be redundant.
   try {
-    // 1. Persist the final Y.Doc state back to MongoDB.
-    const update = Y.encodeStateAsUpdate(ydoc);
-    await Document.findByIdAndUpdate(docId, { content: Buffer.from(update) });
-
-    // 2. Remove any S3 objects + DB records for assets no longer in the document.
-    await cleanUnusedAssets(docId, ydoc);
+    const pendingJob = await documentSavingQueue.getJob(`save-document-${docId}`);
+    if (pendingJob) {
+      await pendingJob.remove();
+    }
   } catch (err) {
-    console.error(`onRoomEmpty failed for ${docId}:`, err);
+    // Non-fatal — if the job can't be removed it will just run and overwrite
+    // with the same data.
+    console.warn(`[onRoomEmpty] Could not remove pending save job for ${docId}:`, err.message);
   }
+
+  // 2. Persist the definitive final state synchronously before we lose the
+  //    in-memory ydoc reference.
+  const update = Y.encodeStateAsUpdate(ydoc);
+  await Document.findByIdAndUpdate(docId, { content: Buffer.from(update) });
+  console.log(`[onRoomEmpty] Document ${docId} saved to DB.`);
+
+
+  // 3. Schedule the asset-cleanup job asynchronously.
+  //    jobId deduplication prevents double-scheduling if two sockets somehow
+  //    trigger onRoomEmpty at the same time. removeOnComplete on the queue
+  //    ensures completed jobs are cleaned up so the jobId can be reused on
+  //    the next session for the same document.
+  await cleanAssetsQueue.add(
+    `clean-assets-${docId}`,
+    { docId },
+    { jobId: `clean-assets-${docId}` }
+  );
+  console.log(`[onRoomEmpty] Asset cleanup job queued for ${docId}.`);
 }
+
+// Start the periodic flush loop for all active documents.
+eventualDocumentFlush(activeDocuments);

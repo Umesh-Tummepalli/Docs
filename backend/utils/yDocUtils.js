@@ -1,6 +1,7 @@
 import * as Y from "yjs";
 import DocumentAsset from "../models/documentAssetModel.js";
 import { deleteObject } from "./s3.js";
+import Document from "../models/documentModel.js";
 
 /**
  * Walk the Y.js XML tree stored under the "prosemirror" key and return every
@@ -53,10 +54,12 @@ export function extractImagesFromYDoc(ydoc) {
  * @param {string}  docId  - MongoDB document ID
  * @param {Y.Doc}   ydoc   - The final in-memory Y.Doc for this session
  */
-export async function cleanUnusedAssets(docId, ydoc) {
+export async function cleanUnusedAssets(docId) {
   // Collect assetIds that are still referenced in the document.
   try {
-    
+    const document = await Document.findById(docId);
+    const ydoc = new Y.Doc();
+    Y.applyUpdate(ydoc, new Uint8Array(document.content));
     const referencedImages = extractImagesFromYDoc(ydoc);
     const referencedAssetIds = new Set(referencedImages.map((img) => img.assetId));
 
