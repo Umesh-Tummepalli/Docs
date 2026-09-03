@@ -7,9 +7,9 @@ const router = express.Router();
 
 router.post('/new', basicAuthorisation, createDocument);
 
-router.get('/:documentId', documentAccessAuthorisation, getDocument);
+router.get('/:documentId',basicAuthorisation, documentAccessAuthorisation, getDocument);
 
-router.get('/:documentId/collab-token', documentAccessAuthorisation, giveDocumentAccess);
+router.get('/:documentId/collab-token',basicAuthorisation, documentAccessAuthorisation, giveDocumentAccess);
 
 router.post('/:documentId/access-token', basicAuthorisation, documentAuthorisation, createDocumentAccessToken);
 
