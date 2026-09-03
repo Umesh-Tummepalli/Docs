@@ -12,6 +12,7 @@ import {
   Sparkles,
   Check
 } from 'lucide-react';
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 
@@ -86,20 +87,24 @@ const DocsLanding = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
-            <Button 
-              size="lg" 
-              className="w-full sm:w-auto bg-[#0b57d0] hover:bg-[#0b57d0]/90 text-white text-base h-12 px-8 shadow-sm transition-all duration-300 group"
-            >
-              Go to WriteFlow
-              <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-            </Button>
-            <Button 
-              size="lg" 
-              variant="outline" 
-              className="w-full sm:w-auto text-base h-12 px-8 border-slate-300 hover:border-slate-400 hover:bg-slate-50 transition-all duration-300"
-            >
-              Try for free
-            </Button>
+            <Link to="/documents">
+              <Button 
+                size="lg" 
+                className="w-full sm:w-auto bg-[#0b57d0] hover:bg-[#0b57d0]/90 text-white text-base h-12 px-8 shadow-sm transition-all duration-300 group"
+              >
+                Go to WriteFlow
+                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
+            <Link to="/documents">
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="w-full sm:w-auto text-base h-12 px-8 border-slate-300 hover:border-slate-400 hover:bg-slate-50 transition-all duration-300"
+              >
+                Try for free
+              </Button>
+            </Link>
           </div>
           
           {/* Trust indicators */}
@@ -246,13 +251,15 @@ const DocsLanding = () => {
           <p className="text-lg text-blue-100 max-w-2xl mx-auto">
             Join thousands of teams already using WriteFlow to create their best work.
           </p>
-          <Button 
-            size="lg" 
-            className="bg-white text-[#0b57d0] hover:bg-blue-50 text-base h-12 px-8 shadow-sm group"
-          >
-            Get started for free
-            <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-          </Button>
+          <Link to="/documents">
+            <Button 
+              size="lg" 
+              className="bg-white text-[#0b57d0] hover:bg-blue-50 text-base h-12 px-8 shadow-sm group"
+            >
+              Get started for free
+              <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+            </Button>
+          </Link>
         </div>
       </section>
 
