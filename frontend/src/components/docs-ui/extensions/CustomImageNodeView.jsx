@@ -4,12 +4,22 @@ import { CloudUpload, ImageIcon, LoaderCircle, AlignLeft, AlignCenter, AlignRigh
 import { resolveImageUrl, addPersisted } from "./imageStore";
 import api from "@/lib/api";
 import { useParams } from "react-router-dom";
+import useYDoc from "../context/YDocContext";
 
 /* ---------------------------------------------------------
    Constants
 --------------------------------------------------------- */
 const MIN_WIDTH = 48;
+const DOCUMENT_WIDTH = 794;
 const DEBOUNCE_MS = 300;
+
+/** Reads the current ruler margins from CSS variables and returns the max image width. */
+function getMaxImageWidth() {
+  const style = getComputedStyle(document.documentElement);
+  const left = parseInt(style.getPropertyValue("--page-margin-left").trim()) || 48;
+  const right = parseInt(style.getPropertyValue("--page-margin-right").trim()) || 48;
+  return DOCUMENT_WIDTH - left - right;
+}
 
 /* ---------------------------------------------------------
    Skeleton / Shimmer
@@ -162,6 +172,7 @@ const AlignmentToolbar = ({ currentAlignment, onAlign }) => {
 --------------------------------------------------------- */
 const CustomImageNodeView = ({ node, updateAttributes }) => {
   const { docId } = useParams();
+  const { yDoc } = useYDoc();
 
   const { assetId, uploadId, src, width, height, alt, title, alignment = "center" } = node.attrs;
 
@@ -173,9 +184,28 @@ const CustomImageNodeView = ({ node, updateAttributes }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isDraggingState, setIsDraggingState] = useState(false);
 
+  // Keep localWidth in sync when width attr changes from remote updates
   useEffect(() => {
     setLocalWidth(width);
   }, [width]);
+
+  // Clamp image width when ruler margins change
+  useEffect(() => {
+    if (!yDoc) return;
+    const metaMap = yDoc.getMap("metadata");
+
+    const handleMarginChange = () => {
+      const maxWidth = getMaxImageWidth();
+      const currentWidth = node.attrs.width;
+      if (currentWidth && currentWidth > maxWidth) {
+        setLocalWidth(maxWidth);
+        updateAttributes({ width: maxWidth });
+      }
+    };
+
+    metaMap.observe(handleMarginChange);
+    return () => metaMap.unobserve(handleMarginChange);
+  }, [yDoc, node.attrs.width, updateAttributes]);
 
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
@@ -243,16 +273,18 @@ const CustomImageNodeView = ({ node, updateAttributes }) => {
     dragStartWidth.current = currentWidth;
     dragSide.current = side;
 
-    // Stable max width: use the editor's content area (ProseMirror)
-    const editorContent = containerRef.current?.closest(".ProseMirror");
-    const maxWidth = editorContent ? editorContent.clientWidth : containerRef.current?.parentElement?.offsetWidth || Infinity;
+    // Read current margins from ruler CSS variables at the moment drag starts
+    const maxWidth = getMaxImageWidth();
 
     const onPointerMove = (moveEvent) => {
       if (!isDragging.current) return;
 
       const deltaX = moveEvent.clientX - dragStartX.current;
       const signedDelta = side === "right" ? deltaX : -deltaX;
-      const newWidth = Math.min(Math.max(dragStartWidth.current + signedDelta, MIN_WIDTH), maxWidth);
+      const newWidth = Math.min(
+        Math.max(dragStartWidth.current + signedDelta, MIN_WIDTH),
+        maxWidth
+      );
 
       setLocalWidth(Math.round(newWidth));
       commitWidth(Math.round(newWidth));
