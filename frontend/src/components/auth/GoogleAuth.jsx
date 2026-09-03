@@ -32,7 +32,7 @@ const GoogleAuth = () => {
       variant="outline"
       type="button"
       onClick={handleGoogleOAuth}
-      className="h-11 border-slate-200 bg-white font-medium text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50/50 hover:shadow-md"
+      className="h-12 w-full rounded-xl border-slate-200 bg-white font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50/50 hover:shadow-md focus-visible:ring-2 focus-visible:ring-[#0b57d0]/20 focus-visible:ring-offset-2"
     >
       <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
         <path

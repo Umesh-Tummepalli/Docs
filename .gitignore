@@ -1,3 +1,4 @@
 **/node_modules/
 .env
 .env.*
+REPOSITORY_IMPLEMENTATION_ANALYSIS.md
