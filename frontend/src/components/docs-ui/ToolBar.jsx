@@ -1,5 +1,4 @@
 import { useState } from "react";
-
 import { useEditorState } from "@tiptap/react";
 import {
   Bold,
@@ -60,12 +59,16 @@ function buildPrintStyles(marginLeft, marginRight) {
       margin: 0 auto;
       background: white;
     }
-    /* Images — preserve rounded corners and sizing from the editor */
-    img {
+    /* Images — alignment is carried by the .image-wrapper div */
+    .image-wrapper {
+      display: block;
+      width: 100%;
+      margin: 1.5rem 0;
+    }
+    .image-wrapper img {
+      display: inline-block;
       max-width: 100%;
       height: auto;
-      display: block;
-      margin: 1.5rem 0;
       border-radius: 1rem;
     }
     /* Headings */
@@ -289,20 +292,20 @@ const ToolBar = ({ docId }) => {
 
   return (
     <div className="relative z-10 pb-2">
-      <div className="mx-auto flex w-fit max-w-full items-center rounded-full bg-[#f9fbfd] p-1 shadow-sm ring-1 ring-slate-200">
-        <div className="flex items-center">
-          {sections[0]?.map((item) => (
-            <ToolbarButton key={item.label} {...item} />
-          ))}
-          <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
-        </div>
+      <div className="mx-auto flex w-full max-w-[95vw] flex-wrap items-center justify-center gap-x-1 gap-y-1 rounded-lg bg-[#f9fbfd] p-2 shadow-sm ring-1 ring-slate-200">
+        {/* Section 1: Undo/Redo/Print/Spellcheck */}
+        {sections[0]?.map((item) => (
+          <ToolbarButton key={item.label} {...item} />
+        ))}
+        <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300 hidden sm:block" />
 
-        <div className="flex items-center">
-          {sections[1]?.map((item) => (
-            <ToolbarButton key={item.label} {...item} />
-          ))}
-          <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
-        </div>
+        {/* Section 2: Bold/Italic/Underline */}
+        {sections[1]?.map((item) => (
+          <ToolbarButton key={item.label} {...item} />
+        ))}
+        <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300 hidden sm:block" />
+
+        {/* Layout & Typography controls */}
         <AlignButton />
         <ListButton />
         <LineHeightButton />
@@ -311,28 +314,17 @@ const ToolBar = ({ docId }) => {
         <HeadingButton />
         <HighlightButton />
         <TextColorButton />
-        <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
+        <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300 hidden sm:block" />
+        
+        {/* Insert controls */}
         <LinkButton />
         <ImageButton />
-        <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
-        {/* PDF export button — commented out until Puppeteer image loading is resolved
-        <button
-          type="button"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={handleExportPdf}
-          title="Export as PDF"
-          aria-label="Export as PDF"
-          className="h-7 min-w-7 flex items-center justify-center rounded-md hover:bg-[#e2e7eb] p-1 mx-1 transition-colors cursor-pointer"
-        >
-          <FileDown size={16} />
-        </button>
-        <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300" />
-        */}
-        <div className="flex items-center">
-          {sections[2]?.map((item) => (
-            <ToolbarButton key={item.label} {...item} />
-          ))}
-        </div>
+        <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300 hidden sm:block" />
+
+        {/* Section 3: Comment/Remove formatting */}
+        {sections[2]?.map((item) => (
+          <ToolbarButton key={item.label} {...item} />
+        ))}
       </div>
     </div>
   );

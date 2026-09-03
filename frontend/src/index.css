@@ -255,6 +255,21 @@
         }
       }
 }
+
+/* Responsive padding for small screens */
+@media (max-width: 768px) {
+  .tiptap {
+    padding: 48px 24px;
+    min-height: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .tiptap {
+    padding: 32px 16px;
+  }
+}
+
 @media print {
   body * {
     @apply invisible;

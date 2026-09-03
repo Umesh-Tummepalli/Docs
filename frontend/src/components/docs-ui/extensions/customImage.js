@@ -93,22 +93,54 @@ export const CustomImage = Node.create({
         parseHTML: (el) => el.getAttribute("title") || null,
         renderHTML: (attrs) => (attrs.title ? { title: attrs.title } : {}),
       },
+
+      // Controls horizontal alignment of the image block (left / center / right).
+      // Stored as a data attribute so it round-trips through HTML without
+      // conflicting with inline styles used by other extensions.
+      alignment: {
+        default: "center",
+        parseHTML: (el) => el.getAttribute("data-alignment") || "center",
+        renderHTML: (attrs) =>
+          attrs.alignment && attrs.alignment !== "center"
+            ? { "data-alignment": attrs.alignment }
+            : {},
+      },
     };
   },
 
   parseHTML() {
     return [
-      // Match images with an assetId attribute (our format)
+      // Wrapped format: <div class="image-wrapper"><img data-asset-id="..."></div>
+      { tag: "div.image-wrapper img[data-asset-id]" },
+      { tag: "div.image-wrapper img[data-upload-id]" },
+      { tag: "div.image-wrapper img[src]" },
+      // Legacy unwrapped format (backward compatibility)
       { tag: "img[data-asset-id]" },
-      // Match images with an uploadId (pending uploads serialized to HTML)
       { tag: "img[data-upload-id]" },
-      // Match legacy plain <img src="..."> for backward compatibility
       { tag: "img[src]" },
     ];
   },
 
-  renderHTML({ HTMLAttributes }) {
-    return ["img", mergeAttributes(HTMLAttributes)];
+  renderHTML({ HTMLAttributes, node }) {
+    // HTMLAttributes is already the merged result of each attr's renderHTML().
+    // The alignment attr renders as "data-alignment" (or nothing for center),
+    // so we read the original value from node.attrs and remove the rendered
+    // key from imgAttrs so it doesn't land on the <img> tag.
+    const alignment = node.attrs.alignment || "center";
+    const { "data-alignment": _removed, ...imgAttrs } = HTMLAttributes;
+
+    const alignStyle =
+      alignment === "right"
+        ? "text-align: right;"
+        : alignment === "left"
+        ? "text-align: left;"
+        : "text-align: center;";
+
+    return [
+      "div",
+      { style: alignStyle, class: "image-wrapper" },
+      ["img", mergeAttributes(imgAttrs)],
+    ];
   },
 
   addNodeView() {
