@@ -1,6 +1,7 @@
 // src/Tiptap.tsx
 import { EditorContent } from '@tiptap/react'
 import { useEditorContext } from './context/EditorContext';
+import LinkTooltip from './toolbar/LinkTooltip';
 
 const Editor = () => {
   const editor = useEditorContext(); 
@@ -15,8 +16,8 @@ const Editor = () => {
                 <LinkButton />
               </div>
             </BubbleMenu>
-          )}
-          <LinkTooltip />*/}
+          )} */}
+          <LinkTooltip />
           <div 
             className="bg-white shadow-md print:shadow-none"
           >
