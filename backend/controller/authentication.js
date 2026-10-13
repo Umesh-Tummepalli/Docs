@@ -4,7 +4,8 @@ import { randomUUID } from 'crypto';
 import bcrypt from "bcrypt";
 import { OAuth2Client } from 'google-auth-library';
 
-const expiresIn = 10 * 24 * 60 * 60; // 10 days in seconds
+const expiresIn = 7 * 24 * 60 * 60; // 7 days in seconds
+const secureCookie = process.env.FRONTEND_URL?.startsWith("https://") === true;
 
 const googleClient = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
@@ -28,8 +29,8 @@ const createSession = async (user) => {
 const setSessionCookie = (res, token) => {
   res.cookie('token', token, {
     httpOnly: true,
-    secure: true,
-    sameSite: 'none',
+    secure: secureCookie,
+    sameSite: secureCookie ? 'none' : 'lax',
     maxAge: expiresIn * 1000,
   });
 };
