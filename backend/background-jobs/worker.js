@@ -21,6 +21,10 @@ const documentSavingWorker = new Worker(
   },
   {
     connection: bullmqRedis,
+    // Long-poll for up to two minutes while the queue is empty. New jobs
+    // wake this blocking wait immediately, which avoids constant idle Redis
+    // polling without delaying normal processing.
+    drainDelay: 120,
   }
 );
 
@@ -42,6 +46,8 @@ const cleanAssetsWorker = new Worker(
   },
   {
     connection: bullmqRedis,
+    // Keep idle Upstash traffic low; a new job wakes the long-poll immediately.
+    drainDelay: 120,
   }
 );
 
