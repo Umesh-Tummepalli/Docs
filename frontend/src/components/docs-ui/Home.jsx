@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Clock3, FolderOpen, Loader2, MoreVertical, Plus, Trash2 } from 'lucide-react';
+import { Clock3, Eye, FilePenLine, Loader2, MoreVertical, Plus, Trash2, UserRound } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '@/lib/api';
 
 const accessSections = [
-  { key: 'owner', heading: 'Owned by me', description: 'Documents you own', badgeClass: 'bg-blue-50 text-[#0b57d0] ring-blue-100', badgeLabel: 'Owner', previewClass: 'from-blue-100 via-white to-violet-100' },
-  { key: 'write', heading: 'Can edit', description: 'Shared with you for editing', badgeClass: 'bg-violet-50 text-violet-700 ring-violet-100', badgeLabel: 'Can edit', previewClass: 'from-violet-100 via-white to-blue-100' },
-  { key: 'read', heading: 'View only', description: 'Shared with you for viewing', badgeClass: 'bg-slate-100 text-slate-700 ring-slate-200', badgeLabel: 'Can view', previewClass: 'from-slate-200 via-white to-blue-50' },
+  { key: 'owner', heading: 'Owned by me', description: 'Documents you own', icon: UserRound, badgeClass: 'bg-blue-50 text-[#0b57d0] ring-blue-100', badgeLabel: 'Owner', previewClass: 'from-blue-100 via-white to-violet-100' },
+  { key: 'write', heading: 'Can edit', description: 'Shared with you for editing', icon: FilePenLine, badgeClass: 'bg-violet-50 text-violet-700 ring-violet-100', badgeLabel: 'Can edit', previewClass: 'from-violet-100 via-white to-blue-100' },
+  { key: 'read', heading: 'View only', description: 'Shared with you for viewing', icon: Eye, badgeClass: 'bg-slate-100 text-slate-700 ring-slate-200', badgeLabel: 'Can view', previewClass: 'from-slate-200 via-white to-blue-50' },
 ];
 
 const formatLastModified = (value) => {
@@ -21,16 +21,22 @@ const formatLastModified = (value) => {
 };
 
 const PaperPreview = ({ className = '' }) => (
-  <div className={`relative h-32 overflow-hidden bg-gradient-to-br ${className}`}>
-    <div className="absolute left-1/2 top-5 h-32 w-24 -translate-x-1/2 rounded-sm bg-white p-3 shadow-md shadow-slate-400/20 transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
-      <div className="h-2 w-3/4 rounded-full bg-slate-300" />
-      <div className="mt-3 space-y-1.5">
+  <div className={`relative h-36 overflow-hidden bg-gradient-to-br ${className}`}>
+    <div className="absolute inset-x-5 top-5 h-24 rounded-xl border border-white/70 bg-white/45 shadow-inner shadow-white/80" />
+    <div className="absolute left-1/2 top-7 h-32 w-28 -translate-x-1/2 rotate-[-3deg] rounded-lg border border-slate-200/80 bg-white p-3.5 shadow-xl shadow-slate-400/20 transition-transform duration-500 group-hover:-translate-y-2 group-hover:rotate-0 group-hover:shadow-2xl">
+      <div className="mb-3 flex items-center gap-1.5">
+        <div className="size-2 rounded-full bg-blue-300" />
+        <div className="h-1.5 w-12 rounded-full bg-slate-200" />
+      </div>
+      <div className="h-2 w-4/5 rounded-full bg-slate-300" />
+      <div className="mt-4 flex flex-col gap-2">
         <div className="h-1.5 rounded-full bg-slate-100" />
         <div className="h-1.5 w-5/6 rounded-full bg-slate-100" />
         <div className="h-1.5 rounded-full bg-slate-100" />
         <div className="h-1.5 w-2/3 rounded-full bg-slate-100" />
       </div>
     </div>
+    <div className="absolute -right-6 -top-8 size-24 rounded-full bg-white/35 blur-2xl" />
   </div>
 );
 
@@ -40,6 +46,7 @@ const DocumentCard = ({ document, section, onDelete }) => {
   const menuRef = useRef(null);
 
   const isOwner = section.key === 'owner';
+  const CardSurface = isDeleting ? 'div' : Link;
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -62,6 +69,7 @@ const DocumentCard = ({ document, section, onDelete }) => {
   const handleDelete = async (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isDeleting) return;
     setMenuOpen(false);
     setIsDeleting(true);
     try {
@@ -75,10 +83,13 @@ const DocumentCard = ({ document, section, onDelete }) => {
   };
 
   return (
-    <div className="relative">
-      <Link
-        to={`/documents/${document.documentId}`}
-        className="group block overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-100/60 focus:outline-none focus:ring-2 focus:ring-blue-300"
+    <div className="relative motion-safe:animate-[document-enter_450ms_ease-out_both]" aria-busy={isDeleting}>
+      <CardSurface
+        {...(isDeleting ? {} : { to: `/documents/${document.documentId}` })}
+        onClick={(event) => { if (isDeleting) event.preventDefault(); }}
+        aria-disabled={isDeleting}
+        tabIndex={isDeleting ? -1 : 0}
+        className={`group block overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-white shadow-[0_8px_30px_-18px_rgba(30,64,175,0.35)] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-4 motion-reduce:transition-none ${isDeleting ? 'pointer-events-none select-none opacity-40' : 'hover:-translate-y-1.5 hover:border-blue-200 hover:shadow-[0_20px_40px_-20px_rgba(37,99,235,0.45)]'}`}
       >
         <PaperPreview className={section.previewClass} />
         <div className="p-4">
@@ -98,16 +109,32 @@ const DocumentCard = ({ document, section, onDelete }) => {
             {formatLastModified(document.lastModified)}
           </div>
         </div>
-      </Link>
+      </CardSurface>
+
+      {isDeleting && (
+        <div className="absolute inset-0 z-20 flex cursor-wait flex-col items-center justify-center gap-3 rounded-2xl bg-white/60 backdrop-blur-[2px]" role="status" aria-live="polite">
+          <span className="flex size-12 items-center justify-center rounded-2xl bg-white text-[#0b57d0] shadow-lg shadow-blue-100/60 ring-1 ring-blue-100">
+            <Loader2 className="size-6 motion-safe:animate-spin" aria-hidden="true" />
+          </span>
+          <span className="text-sm font-semibold text-slate-700">Deleting document…</span>
+          <span className="sr-only">{document.title || 'Untitled Document'}</span>
+        </div>
+      )}
 
       {/* 3-dot menu — only for owner documents */}
       {isOwner && (
-        <div ref={menuRef} className="absolute right-3 top-3 z-10">
+        <div ref={menuRef} className="absolute right-3 top-3 z-10" onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            setMenuOpen(false);
+            menuRef.current?.querySelector('button')?.focus();
+          }
+        }}>
           <button
             type="button"
             onClick={handleMenuToggle}
             disabled={isDeleting}
-            aria-label="Document options"
+            aria-label={`Options for ${document.title || 'Untitled Document'}`}
+            aria-expanded={menuOpen}
             className="flex items-center justify-center rounded-lg bg-white/90 p-1.5 text-slate-500 shadow-sm ring-1 ring-slate-200/80 backdrop-blur-sm transition-all hover:bg-white hover:text-slate-800 hover:shadow-md disabled:cursor-wait disabled:opacity-50"
           >
             {isDeleting
@@ -134,28 +161,48 @@ const DocumentCard = ({ document, section, onDelete }) => {
   );
 };
 
-const DocumentLibrary = ({ documents, loading, onDelete }) => {
-  const allDocuments = Object.values(documents).flat();
+const CreateDocumentCard = ({ isCreating, onCreate, disabled = false }) => (
+  <button
+    type="button"
+    onClick={onCreate}
+    disabled={isCreating || disabled}
+    aria-busy={isCreating}
+    className="group relative flex min-h-56 flex-col items-center justify-center gap-4 overflow-hidden rounded-2xl border-2 border-dashed border-blue-200 bg-gradient-to-br from-blue-50/80 via-white to-violet-50/70 px-5 py-8 text-center transition-all duration-300 hover:-translate-y-1 hover:border-blue-400 hover:shadow-lg hover:shadow-blue-100/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-4 disabled:transform-none disabled:cursor-wait motion-reduce:transition-none"
+  >
+    {isCreating && <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-100/70 to-transparent motion-safe:animate-[document-shimmer_1.8s_infinite]" />}
+    <span className="relative flex size-14 items-center justify-center rounded-2xl bg-white text-[#0b57d0] shadow-sm ring-1 ring-blue-100 transition-transform duration-300 group-hover:scale-110 motion-reduce:transform-none">
+      {isCreating ? <Loader2 className="size-6 motion-safe:animate-spin" aria-hidden="true" /> : <Plus className="size-6" aria-hidden="true" />}
+    </span>
+    <span className="relative flex flex-col gap-1.5" role="status">
+      <span className="text-sm font-semibold text-[#0b57d0]">{isCreating ? 'Creating your document…' : 'Create new document'}</span>
+      <span className="text-xs text-slate-500">{isCreating ? 'Getting a fresh page ready for you' : 'A blank page. Endless possibilities.'}</span>
+    </span>
+  </button>
+);
+
+const DocumentLibrary = ({ documents, loading, onDelete, onCreate, isCreating }) => {
 
   if (loading) {
     return (
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {[...Array(4)].map((_, index) => (
-          <div key={index} className="h-52 animate-pulse rounded-xl bg-white/80 shadow-sm" />
-        ))}
-      </div>
-    );
-  }
-
-  if (allDocuments.length === 0) {
-    return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-white/80 px-6 py-16 text-center shadow-sm">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-blue-50 text-[#0b57d0]">
-          <FolderOpen className="size-7" />
+      <section aria-busy="true" aria-label="Loading documents">
+        <div className="mb-5 flex items-center gap-2 text-sm text-slate-500" role="status">
+          <Loader2 className="size-4 motion-safe:animate-spin text-[#0b57d0]" aria-hidden="true" />
+          Bringing your workspace together…
         </div>
-        <h2 className="mt-5 text-lg font-semibold text-slate-800">No documents yet</h2>
-        <p className="mt-2 text-sm text-slate-500">Create a new document above to get started.</p>
-      </div>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,17rem),1fr))] gap-5">
+          <CreateDocumentCard isCreating={isCreating} onCreate={onCreate} disabled />
+          {Array.from({ length: 3 }, (_, index) => (
+            <div key={index} aria-hidden="true" className="relative min-h-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="h-32 bg-gradient-to-br from-blue-50 to-violet-50" />
+              <div className="flex flex-col gap-3 p-4">
+                <div className="h-3 w-2/3 rounded-full bg-slate-100" />
+                <div className="h-2 w-1/2 rounded-full bg-slate-100" />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/80 to-transparent motion-safe:animate-[document-shimmer_1.8s_infinite]" style={{ animationDelay: `${index * 150}ms` }} />
+            </div>
+          ))}
+        </div>
+      </section>
     );
   }
 
@@ -163,19 +210,25 @@ const DocumentLibrary = ({ documents, loading, onDelete }) => {
     <div className="space-y-10">
       {accessSections.map((section) => {
         const sectionDocuments = documents[section.key] || [];
-        if (sectionDocuments.length === 0) return null;
+        if (sectionDocuments.length === 0 && section.key !== 'owner') return null;
         return (
           <section key={section.key}>
             <div className="mb-4 flex items-end justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">{section.heading}</h2>
-                <p className="mt-1 text-sm text-slate-500">{section.description}</p>
+                <div className="flex items-center gap-2.5">
+                  <span className="flex size-8 items-center justify-center rounded-xl bg-white text-[#0b57d0] shadow-sm ring-1 ring-blue-100">
+                    <section.icon className="size-4" aria-hidden="true" />
+                  </span>
+                  <h2 className="text-lg font-semibold text-slate-900">{section.heading}</h2>
+                </div>
+                <p className="mt-2 pl-10 text-sm text-slate-500">{section.description}</p>
               </div>
               <span className="text-sm font-medium text-slate-500">
                 {sectionDocuments.length} {sectionDocuments.length === 1 ? 'file' : 'files'}
               </span>
             </div>
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,17rem),1fr))] gap-5">
+              {section.key === 'owner' && <CreateDocumentCard isCreating={isCreating} onCreate={onCreate} />}
               {sectionDocuments.map((doc) => (
                 <DocumentCard
                   key={doc.documentId}
@@ -234,7 +287,23 @@ const Home = () => {
   };
 
   return (
-    <main className="relative min-h-[calc(100vh-73px)] overflow-hidden bg-gradient-to-b from-white via-slate-50 to-blue-50/60 px-5 py-10 sm:px-8 lg:px-12">
+    <main className="document-workspace relative min-h-screen overflow-hidden bg-gradient-to-b from-white via-slate-50 to-blue-50/60 px-5 py-10 sm:px-8 lg:px-12">
+      <style>{`
+        @keyframes document-shimmer {
+          from { transform: translateX(-100%); }
+          to { transform: translateX(100%); }
+        }
+        @keyframes document-enter {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .document-workspace *, .document-workspace *::before, .document-workspace *::after {
+            animation: none !important;
+            transition: none !important;
+          }
+        }
+      `}</style>
       <div className="pointer-events-none absolute -right-32 -top-36 size-96 rounded-full bg-blue-200/30 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-40 -left-40 size-96 rounded-full bg-violet-200/30 blur-3xl" />
       <div className="relative mx-auto max-w-7xl">
@@ -246,32 +315,12 @@ const Home = () => {
           </div>
         </div>
 
-        <section className="mb-11 rounded-2xl border border-slate-200 bg-white/85 p-5 shadow-lg shadow-slate-200/40 backdrop-blur sm:p-6">
-          <div className="mb-5">
-            <h2 className="text-base font-semibold text-slate-800">Start a new document</h2>
-            <p className="mt-1 text-sm text-slate-500">Choose a blank page and make it yours.</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleCreateNewDocument}
-            disabled={isCreating}
-            className="group overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-100/70 disabled:cursor-wait disabled:opacity-70"
-          >
-            <PaperPreview className="from-blue-100 via-white to-violet-100" />
-            <div className="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-700">
-              {isCreating
-                ? <Loader2 className="size-4 animate-spin text-[#0b57d0]" />
-                : <Plus className="size-4 text-[#0b57d0]" />
-              }
-              {isCreating ? 'Creating document...' : 'Blank document'}
-            </div>
-          </button>
-        </section>
-
         <DocumentLibrary
           documents={documents}
           loading={isLoadingDocuments}
           onDelete={handleDelete}
+          onCreate={handleCreateNewDocument}
+          isCreating={isCreating}
         />
       </div>
     </main>

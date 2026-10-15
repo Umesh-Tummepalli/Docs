@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils.js";
 
-const ToolbarButton = ({ Icon, onClick = null, isActive = false, label, disabled = false }) => {
+const ToolbarButton = ({ Icon, onClick = null, isActive = false, label, disabled = false, iconClassName }) => {
   return (
     <button
       type="button"
@@ -16,7 +16,7 @@ const ToolbarButton = ({ Icon, onClick = null, isActive = false, label, disabled
         disabled && "opacity-40 pointer-events-none"
       )}
     >
-      <Icon size={16} />
+      <Icon size={16} className={iconClassName} />
     </button>
   );
 };

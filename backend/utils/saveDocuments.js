@@ -1,41 +1,35 @@
 import * as Y from "yjs";
-import { documentSavingQueue } from "../background-jobs/queue.js";
+import Document from "../models/documentModel.js";
 
 const FLUSH_INTERVAL_MS = 60_000; // flush every 60 seconds
 
 /**
- * Periodically flush modified active documents to the document_saving queue.
+ * Periodically flush modified active documents directly to MongoDB.
  *
- * saveScheduled: false → document was modified, not yet queued for save
- * saveScheduled: true  → job is waiting/active in the queue, or no edits yet
+ * saveScheduled: false → document was modified since the last save
+ * saveScheduled: true  → content is in sync with DB, no save needed
  *
  * The docUpdate handler sets saveScheduled = false whenever new content
- * arrives. This loop sets it back to true only when a job is successfully
- * enqueued — if BullMQ deduplicates the add (job already exists in Redis),
- * we leave the flag false so the next tick retries.
+ * arrives. This loop resets it to true only after a successful DB write.
  */
-const eventualDocumentFlush = (activeDocuments) => {
+const directDocumentFlush = (activeDocuments) => {
   setInterval(async () => {
     for (const [docId, state] of activeDocuments) {
       if (state.saveScheduled === false) {
-        const update = Y.encodeStateAsUpdate(state.ydoc);
-
-        const job = await documentSavingQueue.add(
-          `save-document-${docId}`,
-          { docId, ydoc: Array.from(update) },
-          { jobId: `save-document-${docId}` }
-        );
-
-        // If the returned job id doesn't match what we requested, BullMQ
-        // deduplicated the add — leave the flag false so the next tick retries.
-        if (job.id === `save-document-${docId}`) {
+        try {
+          const update = Y.encodeStateAsUpdate(state.ydoc);
+          await Document.findByIdAndUpdate(docId, {
+            content: Buffer.from(update),
+          });
           state.saveScheduled = true;
-        } else {
-          console.warn(`[flush] Job add deduplicated for ${docId}, will retry next tick.`);
+          console.log(`[flush] Document ${docId} saved to DB.`);
+        } catch (err) {
+          // Leave saveScheduled = false so the next tick retries.
+          console.error(`[flush] Failed to save document ${docId}:`, err.message);
         }
       }
     }
   }, FLUSH_INTERVAL_MS);
 };
 
-export default eventualDocumentFlush;
+export default directDocumentFlush;

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useEditorContext } from "./context/EditorContext";
 import useYDoc from "./context/YDocContext";
 
 const PAGE_WIDTH = 794;
@@ -10,6 +9,8 @@ const DEBOUNCE_MS = 300;
 
 const DEFAULT_LEFT = 48;
 const DEFAULT_RIGHT = 48;
+const DEFAULT_TOP = 96;
+const DEFAULT_BOTTOM = 96;
 
 const markers = Array.from({ length: MARKER_COUNT }, (_, index) => index);
 
@@ -19,25 +20,38 @@ const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 function readMarginsFromMap(metaMap) {
   const left = metaMap.get("marginLeft") ?? DEFAULT_LEFT;
   const right = metaMap.get("marginRight") ?? DEFAULT_RIGHT;
-  return { left, right };
+  const top = metaMap.get("marginTop") ?? DEFAULT_TOP;
+  const bottom = metaMap.get("marginBottom") ?? DEFAULT_BOTTOM;
+  return { left, right, top, bottom };
 }
 
 /** Apply margin values to CSS custom properties on :root. */
-function applyMarginsToCss(left, right) {
+function applyMarginsToCss({ left, right, top, bottom }) {
   document.documentElement.style.setProperty("--page-margin-left", `${left}px`);
   document.documentElement.style.setProperty("--page-margin-right", `${right}px`);
+  document.documentElement.style.setProperty("--page-margin-top", `${top}px`);
+  document.documentElement.style.setProperty("--page-margin-bottom", `${bottom}px`);
 }
 
 const Ruler = () => {
-  const editor = useEditorContext();
   const { yDoc, synced } = useYDoc();
 
   const rulerRef = useRef(null);
   const [activeHandle, setActiveHandle] = useState(null);
-  const [margins, setMargins] = useState({ left: DEFAULT_LEFT, right: DEFAULT_RIGHT });
+  const [margins, setMargins] = useState({
+    left: DEFAULT_LEFT,
+    right: DEFAULT_RIGHT,
+    top: DEFAULT_TOP,
+    bottom: DEFAULT_BOTTOM,
+  });
 
   // Always in sync with latest margins so drag callbacks never close over stale values.
-  const marginsRef = useRef({ left: DEFAULT_LEFT, right: DEFAULT_RIGHT });
+  const marginsRef = useRef({
+    left: DEFAULT_LEFT,
+    right: DEFAULT_RIGHT,
+    top: DEFAULT_TOP,
+    bottom: DEFAULT_BOTTOM,
+  });
 
   // Debounce timer for writing to yDoc.
   const debounceRef = useRef(null);
@@ -49,25 +63,35 @@ const Ruler = () => {
   useEffect(() => {
     if (!synced) return;
 
-    const { left, right } = readMarginsFromMap(metaMap);
-    marginsRef.current = { left, right };
-    setMargins({ left, right });
-    applyMarginsToCss(left, right);
-  }, [synced, metaMap]);
+    const currentMargins = readMarginsFromMap(metaMap);
+    marginsRef.current = currentMargins;
+    // The synchronized Y.Doc is an external source of truth for this state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMargins(currentMargins);
+    applyMarginsToCss(currentMargins);
+
+    yDoc.transact(() => {
+      for (const [key, value] of Object.entries({
+        marginLeft: currentMargins.left,
+        marginRight: currentMargins.right,
+        marginTop: currentMargins.top,
+        marginBottom: currentMargins.bottom,
+      })) {
+        if (metaMap.get(key) == null) metaMap.set(key, value);
+      }
+    });
+  }, [synced, metaMap, yDoc]);
 
   // ─── 2. Observe yDoc map for remote changes ───────────────────────────────
   useEffect(() => {
     const handleMapChange = () => {
-      const { left, right } = readMarginsFromMap(metaMap);
+      const currentMargins = readMarginsFromMap(metaMap);
 
       // Only update if the values actually changed to avoid unnecessary re-renders.
-      if (
-        left !== marginsRef.current.left ||
-        right !== marginsRef.current.right
-      ) {
-        marginsRef.current = { left, right };
-        setMargins({ left, right });
-        applyMarginsToCss(left, right);
+      if (Object.keys(currentMargins).some((key) => currentMargins[key] !== marginsRef.current[key])) {
+        marginsRef.current = currentMargins;
+        setMargins(currentMargins);
+        applyMarginsToCss(currentMargins);
       }
     };
 
@@ -77,13 +101,15 @@ const Ruler = () => {
 
   // ─── 3. Debounced write to yDoc ───────────────────────────────────────────
   const scheduleYDocWrite = useCallback(
-    (left, right) => {
+    (nextMargins) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         // Batch into a single Y.js transaction so it emits one docUpdate event.
         yDoc.transact(() => {
-          metaMap.set("marginLeft", left);
-          metaMap.set("marginRight", right);
+          metaMap.set("marginLeft", nextMargins.left);
+          metaMap.set("marginRight", nextMargins.right);
+          metaMap.set("marginTop", nextMargins.top);
+          metaMap.set("marginBottom", nextMargins.bottom);
         });
       }, DEBOUNCE_MS);
     },
@@ -111,13 +137,13 @@ const Ruler = () => {
         newRight = clamp(proposedRight, MIN_MARGIN, maxRight);
       }
 
-      const updated = { left: newLeft, right: newRight };
+      const updated = { ...marginsRef.current, left: newLeft, right: newRight };
       marginsRef.current = updated;
       setMargins(updated);
-      applyMarginsToCss(newLeft, newRight);
+      applyMarginsToCss(updated);
 
       // Schedule debounced write to yDoc so collaborators get the update.
-      scheduleYDocWrite(newLeft, newRight);
+      scheduleYDocWrite(updated);
     },
     [scheduleYDocWrite]
   );
@@ -130,7 +156,7 @@ const Ruler = () => {
     const pointerId = event.pointerId;
 
     if (target.setPointerCapture) {
-      try { target.setPointerCapture(pointerId); } catch (_) {}
+      target.setPointerCapture(pointerId);
     }
 
     setActiveHandle(side);
@@ -149,8 +175,8 @@ const Ruler = () => {
       target.removeEventListener("pointerup", handlePointerUp);
       target.removeEventListener("pointercancel", handlePointerUp);
 
-      if (target.releasePointerCapture) {
-        try { target.releasePointerCapture(pointerId); } catch (_) {}
+      if (target.releasePointerCapture && target.hasPointerCapture?.(pointerId)) {
+        target.releasePointerCapture(pointerId);
       }
 
       // Flush debounce immediately on pointer up so the final position is
@@ -159,10 +185,12 @@ const Ruler = () => {
         clearTimeout(debounceRef.current);
         debounceRef.current = null;
       }
-      const { left, right } = marginsRef.current;
+      const currentMargins = marginsRef.current;
       yDoc.transact(() => {
-        metaMap.set("marginLeft", left);
-        metaMap.set("marginRight", right);
+        metaMap.set("marginLeft", currentMargins.left);
+        metaMap.set("marginRight", currentMargins.right);
+        metaMap.set("marginTop", currentMargins.top);
+        metaMap.set("marginBottom", currentMargins.bottom);
       });
 
       setActiveHandle(null);

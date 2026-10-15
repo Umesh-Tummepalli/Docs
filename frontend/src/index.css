@@ -41,7 +41,7 @@
 .tiptap {
     width: 794px;
     min-height: 1123px;
-    padding: 96px var(--page-margin-right, 48px) 96px var(--page-margin-left, 48px);
+    padding: var(--page-margin-top, 96px) var(--page-margin-right, 48px) var(--page-margin-bottom, 96px) var(--page-margin-left, 48px);
   a {
       color: #2e6ad2;
       cursor: pointer;

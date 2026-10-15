@@ -91,6 +91,17 @@ const editorExtensions = [
  * @param {Function|undefined}   onImagePaste - Callback for paste-to-upload.
  */
 export const editorConfig = (yDoc, provider, editable = true, onImagePaste) => {
+  // If the Y.Doc hasn't been created yet (still fetching user / collab token),
+  // return a minimal config without the Collaboration extension. TipTap will
+  // render an empty editor that is immediately replaced once yDoc is set.
+  if (!yDoc) {
+    return {
+      editable: false,
+      extensions: [...editorExtensions],
+      editorProps: { attributes: editorAttributes },
+    };
+  }
+
   // Build the collaboration extensions list.
   // CollaborationCaret is only added when a live provider is available so the
   // editor never receives an undefined provider object.

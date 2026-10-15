@@ -198,7 +198,7 @@ export const giveDocumentAccess = async (req, res) => {
       docId: documentId,
       userId: id,
       accessLevel,
-    }
+    };
     const token = jwt.sign(payload, process.env.JWT_SECRET);
     res.status(200).json({ token, success: true });
   } catch (error) {
@@ -631,11 +631,33 @@ export const deleteDocument = async (req, res) => {
 };
 
 export const convertToPdf = async (req, res) => {
-  const { html } = req.body;
+  const { html, margins } = req.body || {};
 
   if (!html || typeof html !== "string") {
     return res.status(400).json({
       message: "html is required and must be a string",
+    });
+  }
+
+  const marginValues = margins === undefined ? {} : margins;
+  if (!marginValues || typeof marginValues !== "object" || Array.isArray(marginValues)) {
+    return res.status(400).json({
+      message: "margins must contain valid top, right, bottom, and left values in pixels",
+    });
+  }
+
+  const pdfMargins = {
+    top: marginValues.top ?? 96,
+    right: marginValues.right ?? 48,
+    bottom: marginValues.bottom ?? 96,
+    left: marginValues.left ?? 48,
+  };
+  const hasInvalidMargin = Object.values(pdfMargins).some(
+    (value) => typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 500
+  );
+  if (hasInvalidMargin) {
+    return res.status(400).json({
+      message: "margins must contain valid top, right, bottom, and left values in pixels",
     });
   }
 
@@ -650,9 +672,23 @@ export const convertToPdf = async (req, res) => {
       waitUntil: "networkidle0",
     });
 
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+
+      const images = Array.from(document.images);
+      images.forEach((image) => {
+        image.loading = "eager";
+      });
+      await Promise.all(images.map((image) => image.decode()));
+    });
+
     const pdf = await page.pdf({
       format: "A4",
+      margin: Object.fromEntries(
+        Object.entries(pdfMargins).map(([side, value]) => [side, `${value}px`])
+      ),
       printBackground: true,
+      preferCSSPageSize: true,
     });
 
     res.setHeader("Content-Type", "application/pdf");

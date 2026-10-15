@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useEditorState } from "@tiptap/react";
 import {
   Bold,
+  FileDown,
   Italic,
+  LoaderCircle,
   MessageSquarePlus,
-  Printer,
   Redo2,
   RemoveFormattingIcon,
   SpellCheck,
@@ -34,28 +35,43 @@ import { persistedImageMap } from "./extensions/imageStore";
 /** Read the current margin values that the Ruler has set on :root. */
 function getCurrentMargins() {
   const style = getComputedStyle(document.documentElement);
-  const left = style.getPropertyValue("--page-margin-left").trim() || "48px";
-  const right = style.getPropertyValue("--page-margin-right").trim() || "48px";
-  return { left, right };
+  const readMargin = (side, fallback) => {
+    const value = Number.parseFloat(style.getPropertyValue(`--page-margin-${side}`));
+    return Number.isFinite(value) ? value : fallback;
+  };
+  return {
+    left: readMargin("left", 48),
+    right: readMargin("right", 48),
+    top: readMargin("top", 96),
+    bottom: readMargin("bottom", 96),
+  };
 }
 
 /**
  * Build a self-contained <style> block that replicates the .tiptap layout
  * including the live margin values, headings, lists, images, and tables.
  */
-function buildPrintStyles(marginLeft, marginRight) {
+function buildPrintStyles(margins, forPdf = false) {
+  const pageStyle = forPdf
+    ? "@page { size: A4; }"
+    : "@page { size: portrait; margin: 0; }";
+  const pageBoxStyle = forPdf
+    ? "width: auto; min-height: 0; padding: 0;"
+    : `width: 794px; min-height: 1123px; padding: 96px ${margins.right}px 96px ${margins.left}px;`;
   return `
     *, *::before, *::after { box-sizing: border-box; }
     body {
       font-family: Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
       background: white;
       margin: 0;
       padding: 0;
     }
+    p { margin: 0; orphans: 3; widows: 3; }
+    .tiptap-print > :first-child { margin-top: 0; }
     .tiptap-print {
-      width: 794px;
-      min-height: 1123px;
-      padding: 96px ${marginRight} 96px ${marginLeft};
+      ${pageBoxStyle}
       margin: 0 auto;
       background: white;
     }
@@ -64,6 +80,7 @@ function buildPrintStyles(marginLeft, marginRight) {
       display: block;
       width: 100%;
       margin: 1.5rem 0;
+      break-inside: avoid;
     }
     .image-wrapper img {
       display: inline-block;
@@ -72,7 +89,7 @@ function buildPrintStyles(marginLeft, marginRight) {
       border-radius: 1rem;
     }
     /* Headings */
-    h1, h2, h3, h4, h5, h6 { line-height: 1.1; text-wrap: pretty; }
+    h1, h2, h3, h4, h5, h6 { line-height: 1.1; text-wrap: pretty; break-after: avoid; }
     h1 { font-size: 32px; margin-top: 3.5rem; margin-bottom: 1.5rem; }
     h2 { font-size: 24px; margin-top: 3.5rem; margin-bottom: 1.5rem; }
     h3 { font-size: 20px; margin-top: 2.5rem; margin-bottom: 1rem; }
@@ -95,19 +112,40 @@ function buildPrintStyles(marginLeft, marginRight) {
     ol[data-list-style='upper-alpha'] > li { list-style-type: upper-alpha; }
     ol[data-list-style='lower-roman'] > li { list-style-type: lower-roman; }
     ol[data-list-style='upper-roman'] > li { list-style-type: upper-roman; }
+    ul:not([data-type='taskList']) > li p, ol > li p { margin: 0.25em 0; }
     /* Links */
     a { color: #2e6ad2; }
     /* Tables */
     table { border-collapse: collapse; width: 100%; table-layout: fixed; margin: 1.5rem 0; }
     td, th { border: 1px solid black; padding: 6px 8px; vertical-align: top; }
     th { background-color: #c7c7c7; font-weight: bold; text-align: left; }
+    tr { break-inside: avoid; }
+    ul[data-type='taskList'] { list-style: none; margin-left: 0; padding: 0; }
+    ul[data-type='taskList'] li { display: flex; align-items: flex-start; }
+    ul[data-type='taskList'] label { flex: 0 0 auto; margin-right: 0.5rem; }
+    ul[data-type='taskList'] input[type='checkbox'] { margin: 0.2em 0.4em 0 0; }
     /* Highlights / marks */
     mark { border-radius: 0.4rem; padding: 0.1rem 0.3rem; }
     @media print {
-      @page { size: portrait; margin: 0; }
+      ${pageStyle}
       body { padding: 0; }
     }
   `;
+}
+
+function buildHtmlDocument(html, margins, forPdf = false) {
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Document</title>
+    <style>${buildPrintStyles(margins, forPdf)}</style>
+  </head>
+  <body>
+    <div class="tiptap-print">${html}</div>
+  </body>
+</html>`;
 }
 
 /** Walk the editor JSON and collect every unique assetId from image nodes. */
@@ -157,6 +195,7 @@ async function resolveAssetUrls(assetIds, docId) {
 const ToolBar = ({ docId }) => {
   const editor = useEditorContext();
   const [spellcheckEnabled, setSpellcheckEnabled] = useState(true);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const toggleSpellcheck = () => {
     if (!editor) return;
@@ -171,13 +210,15 @@ const ToolBar = ({ docId }) => {
     editor.commands.focus();
   };
 
+  // Retained for when the toolbar print action is re-enabled.
+  // eslint-disable-next-line no-unused-vars
   const handlePrint = async () => {
     if (!editor) return;
 
     const assetIds = collectAssetIds(editor.getJSON());
     const assetUrlMap = await resolveAssetUrls(assetIds, docId);
     const html = injectImageSrcs(editor.getHTML(), assetUrlMap);
-    const { left, right } = getCurrentMargins();
+    const margins = getCurrentMargins();
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
@@ -185,17 +226,7 @@ const ToolBar = ({ docId }) => {
       return;
     }
 
-    printWindow.document.write(`<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Document</title>
-    <style>${buildPrintStyles(left, right)}</style>
-  </head>
-  <body>
-    <div class="tiptap-print">${html}</div>
-  </body>
-</html>`);
+    printWindow.document.write(buildHtmlDocument(html, margins));
 
     printWindow.document.close();
 
@@ -216,8 +247,49 @@ const ToolBar = ({ docId }) => {
     printWindow.close();
   };
 
-  // ── PDF export — disabled for now (Puppeteer image loading issue) ──────────
-  // const handleExportPdf = async () => { ... };
+  const handleExportPdf = async () => {
+    if (!editor || isExportingPdf) return;
+    setIsExportingPdf(true);
+
+    try {
+      const assetIds = collectAssetIds(editor.getJSON());
+      const assetUrlMap = await resolveAssetUrls(assetIds, docId);
+      const unresolvedAssetIds = Array.from(assetIds).filter((assetId) => !assetUrlMap.has(assetId));
+      if (unresolvedAssetIds.length) {
+        throw new Error("Unable to load one or more document images for PDF export.");
+      }
+
+      const html = injectImageSrcs(editor.getHTML(), assetUrlMap);
+      const margins = getCurrentMargins();
+      const response = await api.post(
+        `/documents/${docId}/convert/pdf`,
+        { html: buildHtmlDocument(html, margins, true), margins },
+        { responseType: "blob" }
+      );
+
+      const pdfUrl = URL.createObjectURL(response.data);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = pdfUrl;
+      downloadLink.download = "document.pdf";
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
+    } catch (error) {
+      let message = error.response?.data?.message;
+      if (!message && error.response?.data instanceof Blob) {
+        try {
+          const responseBody = JSON.parse(await error.response.data.text());
+          message = responseBody.message;
+        } catch {
+          message = undefined;
+        }
+      }
+      toast.error(message || error.message || "Failed to export PDF.");
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   const { canUndo, canRedo, isBoldActive, isItalicActive, isUnderlineActive } = useEditorState({
     editor,
@@ -244,10 +316,17 @@ const ToolBar = ({ docId }) => {
         disabled: !canRedo,
         onClick: () => { editor?.chain().focus().redo().run(); },
       },
+      // {
+      //   label: "print",
+      //   Icon: Printer,
+      //   onClick: handlePrint,
+      // },
       {
-        label: "print",
-        Icon: Printer,
-        onClick: handlePrint,
+        label: isExportingPdf ? "exporting-pdf" : "export-pdf",
+        Icon: isExportingPdf ? LoaderCircle : FileDown,
+        iconClassName: isExportingPdf ? "animate-spin" : undefined,
+        disabled: isExportingPdf,
+        onClick: handleExportPdf,
       },
       {
         label: "spell-check",

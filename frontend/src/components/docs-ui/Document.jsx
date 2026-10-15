@@ -9,6 +9,7 @@ import AccessDenied from "./AccessDenied";
 import Loading from "./Loading";
 import DocumentNotFound from "./DocumentNotFound";
 import AccessPanel from "./AccessPanel";
+import DuplicateSession from "./DuplicateSession";
 import { Button } from "@/components/ui/button";
 import { Edit3, Loader2 } from "lucide-react";
 import useYDoc, { YDocProvider } from "./context/YDocContext";
@@ -19,7 +20,7 @@ import { uploadImageFile } from "./extensions/imageUpload";
 const EditorView = ({ docId, editable }) => {
   // provider is the SocketIOYProvider instance — it exposes provider.awareness.
   // It is null until the collab token is fetched and connect() is called.
-  const { yDoc, provider, synced } = useYDoc();
+  const { yDoc, provider, synced, duplicateSession } = useYDoc();
   const editorRef = useRef(null);
 
   const handleImagePaste = useCallback((file) => {
@@ -52,6 +53,11 @@ const EditorView = ({ docId, editable }) => {
     if (!editor) return;
     editor.setEditable(editable);
   }, [editor, editable]);
+
+  // Show the duplicate session page if the backend returned 409.
+  if (duplicateSession) {
+    return <DuplicateSession />;
+  }
 
   // Wait for socket docSync and a live provider before showing the editor.
   if (!synced || !provider || !editor) {

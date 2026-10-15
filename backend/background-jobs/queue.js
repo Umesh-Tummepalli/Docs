@@ -16,16 +16,8 @@ const defaultJobOptions = {
   },
 };
 
-// Queue for periodically flushing active document state to MongoDB.
-export const documentSavingQueue = new Queue("document_saving", {
-  connection: bullmqRedis,
-  defaultJobOptions,
-});
-
 // Queue for cleaning up unused S3 assets after a session ends.
 export const cleanAssetsQueue = new Queue("clean_assets", {
   connection: bullmqRedis,
   defaultJobOptions,
 });
-
-export default documentSavingQueue;

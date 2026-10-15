@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "concurrently --names \"server,worker\" --prefix-colors \"cyan,yellow\" \"nodemon main.js\" \"nodemon background-jobs/worker.js\"",
-    "start": "concurrently --names \"server,worker\" --prefix-colors \"cyan,yellow\" \"node main.js\" \"node background-jobs/worker.js\""
+    "dev": "nodemon main.js",
+    "dev:worker": "nodemon background-jobs/worker.js",
+    "start": "node main.js",
+    "start:worker": "node background-jobs/worker.js"
   },
   "author": "",
   "license": "ISC",

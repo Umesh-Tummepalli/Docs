@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { io } from "../main.js";
 import * as Y from "yjs";
+import redis from "../config/redis.js";
 
 import {
   Awareness,
@@ -9,8 +10,8 @@ import {
   removeAwarenessStates,
 } from "y-protocols/awareness";
 import Document from "../models/documentModel.js";
-import eventualDocumentFlush from "../utils/saveDocuments.js";
-import { documentSavingQueue, cleanAssetsQueue } from "../background-jobs/queue.js";
+import directDocumentFlush from "../utils/saveDocuments.js";
+import { cleanUnusedAssets } from "../utils/yDocUtils.js";
 
 // docId → { ydoc: Y.Doc, awareness: Awareness, saveScheduled: boolean }
 const activeDocuments = new Map();
@@ -53,7 +54,7 @@ io.on("connection", (socket) => {
         const doc = await Document.findById(docId);
         if (!doc) return socket.emit("error", "Document not found");
 
-        const ydoc = new Y.Doc();
+        const ydoc = new Y.Doc({ gc: false });
         if (doc.content?.length) {
           Y.applyUpdate(ydoc, new Uint8Array(doc.content));
         }
@@ -66,6 +67,10 @@ io.on("connection", (socket) => {
         documentState = { ydoc, awareness, saveScheduled: true };
         activeDocuments.set(docId, documentState);
       }
+
+      // Track this user as an active participant in the document.
+      // SADD is idempotent so re-joining the same room is safe.
+      await redis.sadd(`active:doc:${docId}`, socket.data.userId);
 
       const { ydoc, awareness } = documentState;
 
@@ -161,48 +166,35 @@ io.on("connection", (socket) => {
           console.error(`onRoomEmpty failed for ${docId}:`, err)
         );
       }
+    } else {
+      // Room still has users — remove only this user from the active set.
+      await redis.srem(`active:doc:${docId}`, socket.data.userId);
     }
   });
 });
 
 // ── Room-empty hook ──────────────────────────────────────────────────────────
 // Called once when the last connection leaves a document room.
-//   1. Cancel any pending periodic flush job for this document.
-//   2. Save the final Y.Doc state directly to MongoDB (immediate, authoritative).
-//   3. Schedule a clean_assets job so unused S3 objects are purged asynchronously.
+//   1. GC-compact the Y.Doc and save the clean state to MongoDB.
+//   2. Clear the active-document flag in Redis.
+//   3. Delete unused S3 assets inline.
 async function onRoomEmpty(docId, ydoc) {
-  // 1. Remove the periodic flush job if it is still waiting — we are about
-  //    to do a definitive save, so running it later would be redundant.
-  try {
-    const pendingJob = await documentSavingQueue.getJob(`save-document-${docId}`);
-    if (pendingJob) {
-      await pendingJob.remove();
-    }
-  } catch (err) {
-    // Non-fatal — if the job can't be removed it will just run and overwrite
-    // with the same data.
-    console.warn(`[onRoomEmpty] Could not remove pending save job for ${docId}:`, err.message);
-  }
+  // 1. Apply the in-memory doc into a gc:true Y.Doc so deleted items are
+  //    collected, then persist the compacted state to MongoDB.
+  const gcDoc = new Y.Doc({ gc: true });
+  Y.applyUpdate(gcDoc, Y.encodeStateAsUpdate(ydoc));
+  const compacted = Y.encodeStateAsUpdate(gcDoc);
+  await Document.findByIdAndUpdate(docId, { content: Buffer.from(compacted) });
+  console.log(`[onRoomEmpty] Document ${docId} GC-compacted and saved to DB.`);
 
-  // 2. Persist the definitive final state synchronously before we lose the
-  //    in-memory ydoc reference.
-  const update = Y.encodeStateAsUpdate(ydoc);
-  await Document.findByIdAndUpdate(docId, { content: Buffer.from(update) });
-  console.log(`[onRoomEmpty] Document ${docId} saved to DB.`);
+  // 2. Clear the active-document flag so new collab tokens can be issued.
+  await redis.del(`active:doc:${docId}`);
+  console.log(`[onRoomEmpty] Document ${docId} marked inactive.`);
 
-
-  // 3. Schedule the asset-cleanup job asynchronously.
-  //    jobId deduplication prevents double-scheduling if two sockets somehow
-  //    trigger onRoomEmpty at the same time. removeOnComplete on the queue
-  //    ensures completed jobs are cleaned up so the jobId can be reused on
-  //    the next session for the same document.
-  await cleanAssetsQueue.add(
-    `clean-assets-${docId}`,
-    { docId },
-    { jobId: `clean-assets-${docId}` }
-  );
-  console.log(`[onRoomEmpty] Asset cleanup job queued for ${docId}.`);
+  // 3. Remove S3 assets no longer referenced in the document.
+  await cleanUnusedAssets(docId);
+  console.log(`[onRoomEmpty] Asset cleanup done for ${docId}.`);
 }
 
 // Start the periodic flush loop for all active documents.
-eventualDocumentFlush(activeDocuments);
+directDocumentFlush(activeDocuments);
