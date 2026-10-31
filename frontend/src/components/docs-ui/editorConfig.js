@@ -21,6 +21,8 @@ import { CustomBulletList } from "./extensions/customBulletList";
 import { CustomOrderedList } from "./extensions/customOrderedList";
 import { LineHeight } from "./extensions/lineHeight";
 import { CustomImage } from "./extensions/customImage";
+import { PageBreak } from "./extensions/pageBreak";
+import { PaginationExtension } from "./extensions/paginationPlugin";
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { getClipboardImageFile } from "./extensions/imageUpload";
@@ -80,6 +82,8 @@ const editorExtensions = [
     types: ["paragraph", "heading"],
     defaultLineHeight: "1.5",
   }),
+  PageBreak,
+  PaginationExtension,
 ];
 
 /**

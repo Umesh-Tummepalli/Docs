@@ -29,6 +29,12 @@ import LineHeightButton from "./toolbar/LineHeightButton";
 import api from "@/lib/api";
 import { toast } from "react-toastify";
 import { persistedImageMap } from "./extensions/imageStore";
+import {
+  DEFAULT_MARGIN_LEFT,
+  DEFAULT_MARGIN_RIGHT,
+  DEFAULT_MARGIN_TOP,
+  DEFAULT_MARGIN_BOTTOM,
+} from "./pageConstants";
 
 // ─── Print helpers ────────────────────────────────────────────────────────────
 
@@ -40,10 +46,10 @@ function getCurrentMargins() {
     return Number.isFinite(value) ? value : fallback;
   };
   return {
-    left: readMargin("left", 48),
-    right: readMargin("right", 48),
-    top: readMargin("top", 96),
-    bottom: readMargin("bottom", 96),
+    left: readMargin("left", DEFAULT_MARGIN_LEFT),
+    right: readMargin("right", DEFAULT_MARGIN_RIGHT),
+    top: readMargin("top", DEFAULT_MARGIN_TOP),
+    bottom: readMargin("bottom", DEFAULT_MARGIN_BOTTOM),
   };
 }
 
@@ -126,6 +132,20 @@ function buildPrintStyles(margins, forPdf = false) {
     ul[data-type='taskList'] input[type='checkbox'] { margin: 0.2em 0.4em 0 0; }
     /* Highlights / marks */
     mark { border-radius: 0.4rem; padding: 0.1rem 0.3rem; }
+    /* Page break — manual break node */
+    .page-break {
+      break-after: page;
+      page-break-after: always;
+      height: 0;
+      background: none;
+      margin: 0;
+      padding: 0;
+      border: none;
+    }
+    /* PDF print hardening */
+    h1, h2, h3 { break-after: avoid; }
+    img, tr, pre, blockquote { break-inside: avoid; }
+    p { orphans: 3; widows: 3; }
     @media print {
       ${pageStyle}
       body { padding: 0; }
@@ -394,7 +414,7 @@ const ToolBar = ({ docId }) => {
         <HighlightButton />
         <TextColorButton />
         <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300 hidden sm:block" />
-        
+
         {/* Insert controls */}
         <LinkButton />
         <ImageButton />

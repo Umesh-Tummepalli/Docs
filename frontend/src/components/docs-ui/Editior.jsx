@@ -4,7 +4,7 @@ import { useEditorContext } from './context/EditorContext';
 import LinkTooltip from './toolbar/LinkTooltip';
 
 const Editor = () => {
-  const editor = useEditorContext(); 
+  const editor = useEditorContext();
 
   return (
     <>
@@ -18,8 +18,8 @@ const Editor = () => {
             </BubbleMenu>
           )} */}
           <LinkTooltip />
-          <div 
-            className="bg-white shadow-md print:shadow-none"
+          <div
+            className="bg-white print:shadow-none"
           >
             <EditorContent editor={editor} id="document" />
           </div>

@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import useYDoc from "./context/YDocContext";
+import {
+  PAGE_WIDTH,
+  DEFAULT_MARGIN_LEFT,
+  DEFAULT_MARGIN_RIGHT,
+  DEFAULT_MARGIN_TOP,
+  DEFAULT_MARGIN_BOTTOM,
+} from "./pageConstants";
 
-const PAGE_WIDTH = 794;
 const MIN_MARGIN = 24;
 const MIN_CONTENT_WIDTH = 240;
 const MARKER_COUNT = 83;
 const DEBOUNCE_MS = 300;
-
-const DEFAULT_LEFT = 48;
-const DEFAULT_RIGHT = 48;
-const DEFAULT_TOP = 96;
-const DEFAULT_BOTTOM = 96;
 
 const markers = Array.from({ length: MARKER_COUNT }, (_, index) => index);
 
@@ -18,10 +19,10 @@ const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 /** Read margins from the yDoc metadata map, falling back to defaults. */
 function readMarginsFromMap(metaMap) {
-  const left = metaMap.get("marginLeft") ?? DEFAULT_LEFT;
-  const right = metaMap.get("marginRight") ?? DEFAULT_RIGHT;
-  const top = metaMap.get("marginTop") ?? DEFAULT_TOP;
-  const bottom = metaMap.get("marginBottom") ?? DEFAULT_BOTTOM;
+  const left = metaMap.get("marginLeft") ?? DEFAULT_MARGIN_LEFT;
+  const right = metaMap.get("marginRight") ?? DEFAULT_MARGIN_RIGHT;
+  const top = metaMap.get("marginTop") ?? DEFAULT_MARGIN_TOP;
+  const bottom = metaMap.get("marginBottom") ?? DEFAULT_MARGIN_BOTTOM;
   return { left, right, top, bottom };
 }
 
@@ -39,18 +40,18 @@ const Ruler = () => {
   const rulerRef = useRef(null);
   const [activeHandle, setActiveHandle] = useState(null);
   const [margins, setMargins] = useState({
-    left: DEFAULT_LEFT,
-    right: DEFAULT_RIGHT,
-    top: DEFAULT_TOP,
-    bottom: DEFAULT_BOTTOM,
+    left: DEFAULT_MARGIN_LEFT,
+    right: DEFAULT_MARGIN_RIGHT,
+    top: DEFAULT_MARGIN_TOP,
+    bottom: DEFAULT_MARGIN_BOTTOM,
   });
 
   // Always in sync with latest margins so drag callbacks never close over stale values.
   const marginsRef = useRef({
-    left: DEFAULT_LEFT,
-    right: DEFAULT_RIGHT,
-    top: DEFAULT_TOP,
-    bottom: DEFAULT_BOTTOM,
+    left: DEFAULT_MARGIN_LEFT,
+    right: DEFAULT_MARGIN_RIGHT,
+    top: DEFAULT_MARGIN_TOP,
+    bottom: DEFAULT_MARGIN_BOTTOM,
   });
 
   // Debounce timer for writing to yDoc.
