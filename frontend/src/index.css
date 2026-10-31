@@ -274,6 +274,13 @@
   }
 }
 
+/* The editor represents a paper sheet on the canvas.  Keep this treatment
+   outside .tiptap so the document's printable layout is unchanged. */
+.document-page {
+  border-top: 1px solid #dbe3ee;
+  border-bottom: 1px solid #dbe3ee;
+}
+
 /* Responsive padding for small screens */
 @media (max-width: 768px) {
   .tiptap {
@@ -302,6 +309,12 @@
     position: absolute;
     inset: 0;
   }
+
+  .document-page {
+    border-top: 0;
+    border-bottom: 0;
+    box-shadow: none;
+  }
   mark {
     border-radius: 0.4rem;
     box-decoration-break: clone;
@@ -317,9 +330,11 @@
 /* ─── Page Break node (manual, synced via Yjs) ──────────────────────────── */
 .tiptap .page-break {
   display: block;
-  height: 4px;
-  background: #cbd5e1;
-  border: none;
+  height: 2px;
+  background: #94a3b8;
+  border: 1px solid #cbd5e1;
+  border-left: 0;
+  border-right: 0;
   margin: 8px calc(-1 * var(--page-margin-right, 48px)) 8px
     calc(-1 * var(--page-margin-left, 48px));
   cursor: default;
@@ -342,6 +357,7 @@
 
 .tiptap .page-break.ProseMirror-selectednode {
   background: #3b82f6;
+  border-color: #2563eb;
 }
 
 /* ─── Automatic page-break spacer (visual only, decoration) ──────────── */
@@ -374,6 +390,26 @@
   );
   user-select: none;
   pointer-events: none;
+}
+
+/* Page edges for every visual break.  The first line is the bottom edge of
+   the preceding sheet; the second is the top edge of the next one. */
+.page-break-spacer::before,
+.page-break-spacer::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: #dbe3ee;
+}
+
+.page-break-spacer::before {
+  top: var(--zone2);
+}
+
+.page-break-spacer::after {
+  top: var(--zone3);
 }
 
 /* ─── Legacy Page Extension Styling (kept for compatibility) ─────────── */

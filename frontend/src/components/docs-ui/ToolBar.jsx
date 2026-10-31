@@ -26,6 +26,7 @@ import ImageButton from "./toolbar/ImageButton";
 import AlignButton from "./toolbar/AlignButton";
 import ListButton from "./toolbar/ListButton";
 import LineHeightButton from "./toolbar/LineHeightButton";
+import ZoomButton from "./toolbar/ZoomButton";
 import api from "@/lib/api";
 import { toast } from "react-toastify";
 import { persistedImageMap } from "./extensions/imageStore";
@@ -424,6 +425,10 @@ const ToolBar = ({ docId }) => {
         {sections[2]?.map((item) => (
           <ToolbarButton key={item.label} {...item} />
         ))}
+        <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300 hidden sm:block" />
+
+        {/* Zoom control */}
+        <ZoomButton />
       </div>
     </div>
   );

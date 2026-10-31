@@ -124,7 +124,10 @@ const Ruler = () => {
       if (!ruler) return;
 
       const rect = ruler.getBoundingClientRect();
-      const pointerX = clamp(clientX - rect.left, 0, PAGE_WIDTH);
+
+      // Account for zoom scale when calculating pointer position
+      const zoomScale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--document-zoom')) || 1;
+      const pointerX = clamp((clientX - rect.left) / zoomScale, 0, PAGE_WIDTH);
 
       let newLeft = marginsRef.current.left;
       let newRight = marginsRef.current.right;
@@ -244,7 +247,7 @@ const Ruler = () => {
 
   return (
     <div
-      className="z-40 h-7 border-b border-gray-300 bg-white select-none print:hidden mx-auto mt-2"
+      className="document-ruler z-40 h-7 border-b border-gray-300 bg-white select-none print:hidden mx-auto mt-2"
       style={{ width: `${PAGE_WIDTH}px` }}
     >
       <div
