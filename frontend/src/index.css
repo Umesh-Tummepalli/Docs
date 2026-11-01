@@ -38,6 +38,11 @@
   --sidebar-border: oklch(15.9% 0.037 240);
   --sidebar-ring: oklch(59.8% 0.912 217.2);
 }
+
+body {
+  background-color: #F9FBFD;
+}
+
 .tiptap {
   width: 794px;
   min-height: 1123px;
@@ -411,6 +416,14 @@
 
 .page-break-spacer::after {
   top: var(--zone3);
+}
+
+/* ─── Last-page filler ───────────────────────────────────────────────────── */
+/* Pads the bottom of the last page so it always appears full A4-height.
+   Transparent so it blends with the white page — the closing border edge
+   is already provided by .document-page's border-bottom. */
+.page-last-filler {
+  background: transparent;
 }
 
 /* ─── Legacy Page Extension Styling (kept for compatibility) ─────────── */

@@ -65,13 +65,15 @@ const EditorView = ({ docId, editable }) => {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="flex flex-col" style={{ height: 'calc(100vh - var(--navbar-height, 73px))' }}>
       <EditorContext.Provider value={editor}>
-        <div className="sticky top-0 z-50 bg-[#f9fbfd] pt-4 pb-2 w-full border-b border-transparent">
+        <div className="sticky top-0 z-40 bg-[#f9fbfd] pt-4 pb-2 w-full border-b border-transparent shrink-0">
           {editable && <ToolBar docId={docId} />}
           <Ruler />
         </div>
-        <Editor />
+        <div className="overflow-y-auto flex-1">
+          <Editor />
+        </div>
       </EditorContext.Provider>
     </div>
   );

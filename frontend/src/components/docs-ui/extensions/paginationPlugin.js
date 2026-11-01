@@ -37,14 +37,14 @@ function contentHeight() {
 /**
  * Walk the top-level blocks of the document, measure their rendered height,
  * and return an array of { pos, fill } objects describing where auto page
- * breaks should be inserted.
+ * breaks should be inserted, plus the remaining height on the last page.
  *
  * `pos`  — the document position just before the block that starts a new page.
  * `fill` — remaining space on the previous page (used to size the spacer).
  */
 function computeBreaks(view) {
   const maxH = contentHeight();
-  if (maxH <= 0) return [];
+  if (maxH <= 0) return { breaks: [], lastPageUsed: 0 };
 
   const breaks = [];
   let used = 0;
@@ -76,14 +76,14 @@ function computeBreaks(view) {
     used += blockHeight;
   });
 
-  return breaks;
+  return { breaks, lastPageUsed: used };
 }
 
 /**
- * Serialize breaks to a comparable string so we can detect changes cheaply.
+ * Serialize breaks + lastPageUsed to a comparable string so we can detect changes cheaply.
  */
-function breaksKey(breaks) {
-  return breaks.map((b) => `${b.pos}:${b.fill}`).join('|');
+function breaksKey(breaks, lastPageUsed) {
+  return breaks.map((b) => `${b.pos}:${b.fill}`).join('|') + `|last:${Math.round(lastPageUsed)}`;
 }
 
 /**
@@ -99,12 +99,13 @@ function breaksKey(breaks) {
  *
  * This gives every page the same top/bottom margins as the first page.
  */
-function buildDecorations(breaks, doc) {
-  if (!breaks.length) return DecorationSet.empty;
-
+function buildDecorations(breaks, lastPageUsed, doc) {
   const { top, bottom } = readMarginsFromCss();
+  const maxH = contentHeight();
+  const widgets = [];
 
-  const widgets = breaks.map((b, i) => {
+  // ── Page-break spacers ────────────────────────────────────────────────────
+  breaks.forEach((b, i) => {
     const spacer = document.createElement('div');
     spacer.className = 'page-break-spacer';
     spacer.contentEditable = 'false';
@@ -115,18 +116,65 @@ function buildDecorations(breaks, doc) {
     spacer.style.marginLeft = `calc(-1 * var(--page-margin-left, 48px))`;
     spacer.style.marginRight = `calc(-1 * var(--page-margin-right, 48px))`;
 
-    // Pass layout values to CSS so the gradient can paint the four zones.
     spacer.style.setProperty('--spacer-fill', `${b.fill}px`);
     spacer.style.setProperty('--spacer-bottom', `${bottom}px`);
     spacer.style.setProperty('--spacer-gap', `${PAGE_GAP}px`);
     spacer.style.setProperty('--spacer-top', `${top}px`);
 
-    return Decoration.widget(b.pos, spacer, {
+    widgets.push(Decoration.widget(b.pos, spacer, {
       side: -1,
       key: `page-break-${i}`,
-    });
+    }));
   });
 
+  // ── Last-page filler ──────────────────────────────────────────────────────
+  // Pad the bottom of the last page so it always appears full A4-height.
+  //
+  // Layout of the last page (top → bottom):
+  //   .tiptap padding-top  (= top)           ← already rendered by CSS
+  //   lastPageUsed                            ← actual content
+  //   fillerHeight                            ← this decoration fills the rest
+  //   .tiptap padding-bottom (= bottom)      ← already rendered by CSS
+  //
+  // Total must equal PAGE_HEIGHT (1123 px):
+  //   top + lastPageUsed + fillerHeight + bottom = PAGE_HEIGHT
+  //   → fillerHeight = PAGE_HEIGHT - top - bottom - lastPageUsed
+  //                  = maxH - lastPageUsed
+  //
+  // NOTE: we do NOT add `bottom` here.  The spacers for intermediate pages
+  // include bottom/top margin in their own height because they sit inside
+  // the content flow and override those zones themselves.  But on the last
+  // page .tiptap's own padding-bottom already provides the bottom margin,
+  // so adding it again would make the page taller than A4.
+  //
+  // We skip the filler when lastPageUsed is 0 (empty doc or last break
+  // landed exactly at a page boundary — the preceding spacer already closed
+  // that page with its full bottom border).
+  const fillerHeight = lastPageUsed > 0 ? maxH - lastPageUsed : 0;
+  if (fillerHeight > 1) {
+    const filler = document.createElement('div');
+    filler.className = 'page-last-filler';
+    filler.contentEditable = 'false';
+    filler.setAttribute('data-last-filler', 'true');
+    filler.style.height = `${fillerHeight}px`;
+    filler.style.marginLeft = `calc(-1 * var(--page-margin-left, 48px))`;
+    filler.style.marginRight = `calc(-1 * var(--page-margin-right, 48px))`;
+    filler.style.pointerEvents = 'none';
+    filler.style.userSelect = 'none';
+    filler.style.display = 'block';
+
+    // Append after the last top-level node in the document.
+    // doc.content.size is the position just past the last node — correct for
+    // a side:1 widget that should render after all content.
+    // Using doc.content.size - 1 would land *inside* the last node and break
+    // cursor positioning.
+    widgets.push(Decoration.widget(doc.content.size, filler, {
+      side: 1,
+      key: 'last-page-filler',
+    }));
+  }
+
+  if (!widgets.length) return DecorationSet.empty;
   return DecorationSet.create(doc, widgets);
 }
 
@@ -146,7 +194,7 @@ export const PaginationExtension = Extension.create({
 
       state: {
         init() {
-          return { breaks: [], decorations: DecorationSet.empty };
+          return { breaks: [], lastPageUsed: 0, decorations: DecorationSet.empty };
         },
         apply(tr, value) {
           // If a recompute transaction carries new breaks, use them.
@@ -154,13 +202,15 @@ export const PaginationExtension = Extension.create({
           if (meta) {
             return {
               breaks: meta.breaks,
-              decorations: buildDecorations(meta.breaks, tr.doc),
+              lastPageUsed: meta.lastPageUsed,
+              decorations: buildDecorations(meta.breaks, meta.lastPageUsed, tr.doc),
             };
           }
           // Otherwise map existing decorations through the mapping.
           if (tr.docChanged) {
             return {
               breaks: value.breaks,
+              lastPageUsed: value.lastPageUsed,
               decorations: value.decorations.map(tr.mapping, tr.doc),
             };
           }
@@ -182,12 +232,13 @@ export const PaginationExtension = Extension.create({
         const recompute = () => {
           rafId = requestAnimationFrame(() => {
             rafId = null;
-            const breaks = computeBreaks(editorView);
-            const key = breaksKey(breaks);
+            const { breaks, lastPageUsed } = computeBreaks(editorView);
+            const key = breaksKey(breaks, lastPageUsed);
             if (key !== prevKey) {
               prevKey = key;
               const tr = editorView.state.tr.setMeta(paginationPluginKey, {
                 breaks,
+                lastPageUsed,
               });
               tr.setMeta('addToHistory', false);
               editorView.dispatch(tr);

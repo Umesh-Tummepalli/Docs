@@ -30,6 +30,10 @@ const Navbar = () => {
     return () => { active = false; };
   }, [location.pathname]);
 
+  useEffect(() => {
+    document.documentElement.style.setProperty('--navbar-height', isHidden ? '0px' : '73px');
+  }, [isHidden]);
+
   const initial = user?.username?.trim()?.charAt(0)?.toUpperCase()
     || user?.email?.charAt(0)?.toUpperCase()
     || 'U';
