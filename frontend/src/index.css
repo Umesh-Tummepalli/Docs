@@ -41,6 +41,7 @@
 .tiptap {
   width: 794px;
   min-height: 1123px;
+  background: white;
   padding: var(--page-margin-top, 96px) var(--page-margin-right, 48px)
     var(--page-margin-bottom, 96px) var(--page-margin-left, 48px);
   a {

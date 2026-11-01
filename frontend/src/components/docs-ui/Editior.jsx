@@ -8,7 +8,7 @@ const Editor = () => {
 
   return (
     <>
-      <div className="size-full bg-[#F9FBFD] px-4 print:p-0 print:bg-white print:overflow-hidden relative overflow-x-auto">
+      <div className="w-full bg-[#F9FBFD] px-4 pb-32 print:p-0 print:bg-white relative">
         <div className="flex justify-center py-4 print:py-0 mx-auto my-4 relative min-w-fit">
           {/* {editor && (
             <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
@@ -18,7 +18,7 @@ const Editor = () => {
             </BubbleMenu>
           )} */}
           <LinkTooltip />
-          <div className="document-page bg-white print:shadow-none">
+          <div className="document-page print:shadow-none">
             <EditorContent editor={editor} id="document" />
           </div>
         </div>
