@@ -32,7 +32,7 @@ app.use(express.raw({
   type: 'application/octet-stream',
   limit: '16mb',
 }));
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 
@@ -57,4 +57,3 @@ app.use((req, res) => {
 httpserver.listen(8000,()=>{
   console.log("server running on port : 8000");
 })
-

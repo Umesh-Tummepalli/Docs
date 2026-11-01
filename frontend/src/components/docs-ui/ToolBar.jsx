@@ -2,9 +2,7 @@ import { useState } from "react";
 import { useEditorState } from "@tiptap/react";
 import {
   Bold,
-  FileDown,
   Italic,
-  LoaderCircle,
   MessageSquarePlus,
   Redo2,
   RemoveFormattingIcon,
@@ -27,6 +25,7 @@ import AlignButton from "./toolbar/AlignButton";
 import ListButton from "./toolbar/ListButton";
 import LineHeightButton from "./toolbar/LineHeightButton";
 import ZoomButton from "./toolbar/ZoomButton";
+import ExportButton from "./toolbar/ExportButton";
 import api from "@/lib/api";
 import { toast } from "react-toastify";
 import { persistedImageMap } from "./extensions/imageStore";
@@ -217,6 +216,7 @@ const ToolBar = ({ docId }) => {
   const editor = useEditorContext();
   const [spellcheckEnabled, setSpellcheckEnabled] = useState(true);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportingDocx, setIsExportingDocx] = useState(false);
 
   const toggleSpellcheck = () => {
     if (!editor) return;
@@ -312,6 +312,52 @@ const ToolBar = ({ docId }) => {
     }
   };
 
+  const handleExportDocx = async () => {
+    if (!editor || isExportingDocx) return;
+    setIsExportingDocx(true);
+
+    try {
+      const assetIds = collectAssetIds(editor.getJSON());
+      const assetUrlMap = await resolveAssetUrls(assetIds, docId);
+      const unresolvedAssetIds = Array.from(assetIds).filter((assetId) => !assetUrlMap.has(assetId));
+      if (unresolvedAssetIds.length) {
+        throw new Error("Unable to load one or more document images for DOCX export.");
+      }
+
+      const html = injectImageSrcs(editor.getHTML(), assetUrlMap);
+      const margins = getCurrentMargins();
+      const response = await api.post(
+        `/documents/${docId}/convert/docx`,
+        // Match the PDF export payload so the converter receives the same complete,
+        // self-contained HTML and can map its CSS to native Word formatting.
+        { html: buildHtmlDocument(html, margins, true), margins },
+        { responseType: "blob" }
+      );
+
+      const docxUrl = URL.createObjectURL(response.data);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = docxUrl;
+      downloadLink.download = "document.docx";
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      window.setTimeout(() => URL.revokeObjectURL(docxUrl), 1000);
+    } catch (error) {
+      let message = error.response?.data?.message;
+      if (!message && error.response?.data instanceof Blob) {
+        try {
+          const responseBody = JSON.parse(await error.response.data.text());
+          message = responseBody.message;
+        } catch {
+          message = undefined;
+        }
+      }
+      toast.error(message || error.message || "Failed to export DOCX.");
+    } finally {
+      setIsExportingDocx(false);
+    }
+  };
+
   const { canUndo, canRedo, isBoldActive, isItalicActive, isUnderlineActive } = useEditorState({
     editor,
     selector: ({ editor: currentEditor }) => ({
@@ -336,18 +382,6 @@ const ToolBar = ({ docId }) => {
         Icon: Redo2,
         disabled: !canRedo,
         onClick: () => { editor?.chain().focus().redo().run(); },
-      },
-      // {
-      //   label: "print",
-      //   Icon: Printer,
-      //   onClick: handlePrint,
-      // },
-      {
-        label: isExportingPdf ? "exporting-pdf" : "export-pdf",
-        Icon: isExportingPdf ? LoaderCircle : FileDown,
-        iconClassName: isExportingPdf ? "animate-spin" : undefined,
-        disabled: isExportingPdf,
-        onClick: handleExportPdf,
       },
       {
         label: "spell-check",
@@ -393,7 +427,16 @@ const ToolBar = ({ docId }) => {
   return (
     <div className="relative z-10 pb-2">
       <div className="mx-auto flex w-full max-w-[95vw] flex-wrap items-center justify-center gap-x-1 gap-y-1 rounded-lg bg-[#f9fbfd] p-2 shadow-sm ring-1 ring-slate-200">
-        {/* Section 1: Undo/Redo/Print/Spellcheck */}
+        {/* Export — leftmost button */}
+        <ExportButton
+          onExportPdf={handleExportPdf}
+          onExportDocx={handleExportDocx}
+          isExportingPdf={isExportingPdf}
+          isExportingDocx={isExportingDocx}
+        />
+        <Separator orientation="vertical" className="h-6 w-0.5 rounded bg-neutral-300 hidden sm:block" />
+
+        {/* Section 1: Undo/Redo/Spellcheck */}
         {sections[0]?.map((item) => (
           <ToolbarButton key={item.label} {...item} />
         ))}

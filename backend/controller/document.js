@@ -2,6 +2,7 @@ import redis from "../config/redis.js"
 import jwt from "jsonwebtoken"
 import crypto from "crypto";
 import puppeteer from "puppeteer";
+import { convertHtmlToDocx } from "../utils/docxExport.js";
 import * as Y from 'yjs';
 
 
@@ -15,7 +16,7 @@ import { generateAccessUrl, generateUploadUrl, getObjectMetadata, deleteObject }
 
 
 const canEdit = (accessLevel) => ["owner", "write"].includes(accessLevel);
-const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"]);
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
 
@@ -710,3 +711,63 @@ export const convertToPdf = async (req, res) => {
     }
   }
 }
+
+export const convertToDocx = async (req, res) => {
+  // Keep this request contract identical to the PDF route: { html, margins }.
+  const { html, margins } = req.body || {};
+
+  if (!html || typeof html !== "string" || html.trim() === "") {
+    return res.status(400).json({
+      message: "html is required and must be a string",
+    });
+  }
+  const marginValues = margins === undefined ? {} : margins;
+  if (!marginValues || typeof marginValues !== "object" || Array.isArray(marginValues)) {
+    return res.status(400).json({
+      message: "margins must contain valid top, right, bottom, and left values in pixels",
+    });
+  }
+
+  const docxMargins = {
+    top: marginValues.top ?? 96,
+    right: marginValues.right ?? 48,
+    bottom: marginValues.bottom ?? 96,
+    left: marginValues.left ?? 48,
+  };
+
+  const hasInvalidMargin = Object.values(docxMargins).some(
+    (value) => typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 500
+  );
+  if (hasInvalidMargin) {
+    return res.status(400).json({
+      message: "margins must contain valid top, right, bottom, and left values in pixels",
+    });
+  }
+
+  try {
+    const docxBuffer = await convertHtmlToDocx({
+      html,
+      margins: docxMargins,
+    });
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="document.docx"'
+    );
+    res.setHeader("Content-Length", docxBuffer.length);
+
+    res.end(docxBuffer);
+  } catch (error) {
+    console.error("DOCX generation failed:", error.message);
+
+    if (!res.headersSent) {
+      res.status(500).json({
+        message: "Failed to generate DOCX document",
+      });
+    }
+  }
+};

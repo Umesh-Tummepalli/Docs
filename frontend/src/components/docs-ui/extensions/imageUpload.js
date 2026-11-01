@@ -8,11 +8,12 @@ export const ALLOWED_IMAGE_TYPES = new Set([
   "image/png",
   "image/gif",
   "image/webp",
+  "image/svg+xml",
 ]);
 
 export function validateImageFile(file) {
   if (!file || !ALLOWED_IMAGE_TYPES.has(file.type)) {
-    return "Choose a JPG, PNG, GIF, or WEBP image";
+    return "Choose a JPG, PNG, GIF, WEBP, or SVG image";
   }
   if (file.size > 10 * 1024 * 1024) {
     return "Image size should be less than 10MB";

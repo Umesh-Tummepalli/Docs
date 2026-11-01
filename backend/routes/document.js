@@ -1,6 +1,6 @@
 import express from 'express';
 import { basicAuthorisation, documentAccessAuthorisation, documentAuthorisation } from "../middlewares/authorisation.js";
-import { createDocument, createDocumentAccessToken, deleteDocumentAccessToken, getDocument, getDocumentAccess, getDocumentAccessTokens, getUsersDocuments, approveAccessRequest, denyAccessRequest, grantOwnerAccess, removeDocumentUserAccess, updateDocumentTitle, updateDocumentUserAccess, saveDocument, getImageUploadUrl, completeImageUpload, getAssetUrl, giveDocumentAccess, deleteDocument, convertToPdf } from '../controller/document.js';
+import { createDocument, createDocumentAccessToken, deleteDocumentAccessToken, getDocument, getDocumentAccess, getDocumentAccessTokens, getUsersDocuments, approveAccessRequest, denyAccessRequest, grantOwnerAccess, removeDocumentUserAccess, updateDocumentTitle, updateDocumentUserAccess, saveDocument, getImageUploadUrl, completeImageUpload, getAssetUrl, giveDocumentAccess, deleteDocument, convertToPdf, convertToDocx } from '../controller/document.js';
 
 
 const router = express.Router();
@@ -45,6 +45,8 @@ router.delete('/:documentId', documentAccessAuthorisation, deleteDocument);
 
 
 router.post("/:documentId/convert/pdf", documentAccessAuthorisation, convertToPdf);
+
+router.post("/:documentId/convert/docx", documentAccessAuthorisation, convertToDocx);
 
 
 export default router;

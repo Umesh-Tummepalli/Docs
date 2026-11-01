@@ -323,7 +323,7 @@ const ImageButton = () => {
                       <input
                         id="image-file-input"
                         type="file"
-                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
                         className="sr-only"
                         onChange={handleFileInputChange}
                         disabled={isPending}
