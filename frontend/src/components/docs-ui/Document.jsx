@@ -16,6 +16,8 @@ import useYDoc, { YDocProvider } from "./context/YDocContext";
 import { useEditor } from "@tiptap/react";
 import { editorConfig } from "./editorConfig";
 import { uploadImageFile } from "./extensions/imageUpload";
+import { ZoomProvider } from "./context/ZoomContext";
+import ZoomGestureHandler from "./ZoomGestureHandler";
 
 const EditorView = ({ docId, editable }) => {
   // provider is the SocketIOYProvider instance — it exposes provider.awareness.
@@ -65,17 +67,20 @@ const EditorView = ({ docId, editable }) => {
   }
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - var(--navbar-height, 73px))' }}>
-      <EditorContext.Provider value={editor}>
-        <div className="sticky top-0 z-40 bg-[#f9fbfd] pt-4 pb-2 w-full border-b border-transparent shrink-0">
-          {editable && <ToolBar docId={docId} />}
-          <Ruler />
-        </div>
-        <div className="overflow-y-auto flex-1">
-          <Editor />
-        </div>
-      </EditorContext.Provider>
-    </div>
+    <ZoomProvider>
+      <ZoomGestureHandler />
+      <div className="flex flex-col" style={{ height: 'calc(100vh - var(--navbar-height, 73px))' }}>
+        <EditorContext.Provider value={editor}>
+          <div className="sticky top-0 z-40 bg-[#f9fbfd] pt-4 pb-2 w-full border-b border-transparent shrink-0">
+            {editable && <ToolBar docId={docId} />}
+            <Ruler />
+          </div>
+          <div className="overflow-y-auto flex-1">
+            <Editor />
+          </div>
+        </EditorContext.Provider>
+      </div>
+    </ZoomProvider>
   );
 };
 

@@ -207,6 +207,12 @@ const CustomImageNodeView = ({ node, updateAttributes }) => {
     return () => metaMap.unobserve(handleMarginChange);
   }, [yDoc, node.attrs.width, updateAttributes]);
 
+  // Reset error state when src changes
+  useEffect(() => {
+    setFailedResourceKey(null);
+    setLoadedSrc(null);
+  }, [src, assetId, uploadId]);
+
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
@@ -348,7 +354,8 @@ const CustomImageNodeView = ({ node, updateAttributes }) => {
   /* -------------------------------------------------------
      Render image with resize handles & alignment toolbar
   ------------------------------------------------------- */
-  const showSkeleton = !imageLoaded;
+  // Show loading bar only for pending uploads that haven't loaded yet
+  const showLoadingBar = isPendingUpload && !imageLoaded;
 
   return (
     <NodeViewWrapper as="div" style={{ display: "block", textAlign: alignment }}>
@@ -381,19 +388,26 @@ const CustomImageNodeView = ({ node, updateAttributes }) => {
           width={localWidth || undefined}
           height={height || undefined}
           draggable={false}
-          onLoad={() => setLoadedSrc(resolvedSrc)}
-          onError={() => setFailedResourceKey(resourceKey)}
+          onLoad={() => {
+            console.log(`[Image] Successfully loaded: ${resolvedSrc}`);
+            setLoadedSrc(resolvedSrc);
+            setFailedResourceKey(null);
+          }}
+          onError={(e) => {
+            console.error(`[Image] Failed to load: ${resolvedSrc}`, e);
+            setFailedResourceKey(resourceKey);
+          }}
           className={`
             block
             h-auto
             max-w-full
-            transition-opacity
-            duration-500
-            ease-out
             rounded-2xl
-            ${showSkeleton ? "opacity-0" : "opacity-100"}
             ${isDraggingState ? "ring-2 ring-blue-500 ring-offset-2" : ""}
           `}
+          style={{
+            opacity: resolvedSrc ? 1 : 0,
+            transition: "opacity 0.2s ease-out",
+          }}
         />
 
         {/* Width tooltip while dragging */}
@@ -419,10 +433,37 @@ const CustomImageNodeView = ({ node, updateAttributes }) => {
           </div>
         )}
 
-        {/* Skeleton overlay while image loads */}
-        {showSkeleton && (
-          <div className="absolute inset-0">
-            <ImageSkeleton width="100%" height="100%" label="Loading image" showUploadIcon={false} />
+        {/* Loading progress bar at the bottom for pending uploads */}
+        {showLoadingBar && (
+          <div
+            className="absolute bottom-0 left-0 right-0 h-1 overflow-hidden rounded-b-2xl"
+            style={{
+              background: "rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <div
+              className="h-full bg-blue-500"
+              style={{
+                animation: "loading-progress 1.5s ease-in-out infinite",
+                transformOrigin: "left",
+              }}
+            />
+            <style>{`
+              @keyframes loading-progress {
+                0% {
+                  transform: scaleX(0);
+                  transform-origin: left;
+                }
+                50% {
+                  transform: scaleX(0.6);
+                  transform-origin: left;
+                }
+                100% {
+                  transform: scaleX(1);
+                  transform-origin: left;
+                }
+              }
+            `}</style>
           </div>
         )}
 
@@ -435,7 +476,7 @@ const CustomImageNodeView = ({ node, updateAttributes }) => {
         />
 
         {/* Alignment toolbar on hover */}
-        {(isHovered || isDraggingState) && !showSkeleton && (
+        {(isHovered || isDraggingState) && imageLoaded && (
           <AlignmentToolbar currentAlignment={alignment} onAlign={handleAlign} />
         )}
       </div>

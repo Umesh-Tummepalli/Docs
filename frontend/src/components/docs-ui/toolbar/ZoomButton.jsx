@@ -1,17 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils.js";
+import { useZoom } from "../context/ZoomContext";
 
 const PRESET_ZOOM_LEVELS = [
   50, 75, 90, 100, 125, 150, 175, 200
 ];
 
 const ZoomButton = () => {
-  const [zoom, setZoom] = useState(100);
-  const [inputValue, setInputValue] = useState("100");
+  const { zoom, updateZoom, zoomIn, zoomOut } = useZoom();
+  const [inputValue, setInputValue] = useState(String(zoom));
   const [isFocused, setIsFocused] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const wrapperRef = useRef(null);
+
+  // Sync input value with zoom state
+  useEffect(() => {
+    if (!isFocused) {
+      setInputValue(String(zoom));
+    }
+  }, [zoom, isFocused]);
 
   // Handle outside click to close dropdown
   useEffect(() => {
@@ -25,41 +33,6 @@ const ZoomButton = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
-  // Apply zoom to the document-page element and ruler
-  useEffect(() => {
-    const scale = zoom / 100;
-
-    // Set CSS variable for zoom scale so Ruler can use it
-    document.documentElement.style.setProperty('--document-zoom', scale);
-
-    const docPage = document.querySelector(".document-page");
-    if (docPage) {
-      docPage.style.transform = `scale(${scale})`;
-      docPage.style.transformOrigin = "top center";
-      // Adjust the wrapper height to prevent overflow/gaps
-      const wrapper = docPage.parentElement;
-      if (wrapper) {
-        // The scaled element still occupies original space, so we adjust wrapper
-        wrapper.style.height = `${docPage.scrollHeight * scale}px`;
-      }
-    }
-
-    // Also scale the ruler
-    const ruler = document.querySelector(".document-ruler");
-    if (ruler) {
-      ruler.style.transform = `scale(${scale})`;
-      ruler.style.transformOrigin = "top center";
-    }
-  }, [zoom]);
-
-  const updateZoom = (newZoom) => {
-    const zoomValue = Math.max(25, Math.min(400, parseInt(newZoom, 10)));
-    if (!isNaN(zoomValue)) {
-      setZoom(zoomValue);
-      setInputValue(String(zoomValue));
-    }
-  };
 
   const handleInputChange = (e) => {
     setInputValue(e.target.value);
@@ -87,17 +60,11 @@ const ZoomButton = () => {
   };
 
   const handleDecrease = () => {
-    const current = zoom;
-    if (current > 25) {
-      updateZoom(current - 10);
-    }
+    zoomOut(10);
   };
 
   const handleIncrease = () => {
-    const current = zoom;
-    if (current < 400) {
-      updateZoom(current + 10);
-    }
+    zoomIn(10);
   };
 
   return (

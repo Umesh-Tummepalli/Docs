@@ -3,7 +3,6 @@ import { useEditorState } from "@tiptap/react";
 import {
   Bold,
   Italic,
-  MessageSquarePlus,
   Redo2,
   RemoveFormattingIcon,
   SpellCheck,
@@ -411,11 +410,11 @@ const ToolBar = ({ docId }) => {
       },
     ],
     [
-      {
-        label: "comment",
-        Icon: MessageSquarePlus,
-        onClick: () => { console.log("comment"); },
-      },
+      // {
+      //   label: "comment",
+      //   Icon: MessageSquarePlus,
+      //   onClick: () => { console.log("comment"); },
+      // },
       {
         label: "remove-formatting",
         Icon: RemoveFormattingIcon,

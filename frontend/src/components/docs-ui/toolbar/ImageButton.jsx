@@ -57,11 +57,34 @@ const ImageButton = () => {
     setIsPending(false);
   }, []);
 
-  const { isImageActive } = useEditorState({
+  const { isImageActive, selectedImageSrc } = useEditorState({
     editor,
-    selector: ({ editor: currentEditor }) => ({
-      isImageActive: currentEditor?.isActive("image"),
-    }),
+    selector: ({ editor: currentEditor }) => {
+      const isActive = currentEditor?.isActive("image");
+      let imageSrc = null;
+      
+      // If an image is selected, check if it has a src (URL-based image without assetId)
+      if (isActive) {
+        const { state } = currentEditor;
+        const { selection } = state;
+        const { $from } = selection;
+        
+        // Get the node at the current selection
+        const node = $from.parent?.type?.name === "image" 
+          ? $from.parent 
+          : state.doc.nodeAt(selection.from);
+        
+        // Only show src if the image doesn't have an assetId (uploaded image)
+        if (node?.type?.name === "image" && !node.attrs.assetId && node.attrs.src) {
+          imageSrc = node.attrs.src;
+        }
+      }
+      
+      return {
+        isImageActive: isActive,
+        selectedImageSrc: imageSrc,
+      };
+    },
   });
 
   // Close panel on outside click
@@ -75,6 +98,14 @@ const ImageButton = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [handleReset]);
+
+  // Populate URL field and switch to URL mode when a URL-based image is selected
+  useEffect(() => {
+    if (selectedImageSrc && panelOpen) {
+      setImageUrl(selectedImageSrc);
+      setMode("url");
+    }
+  }, [selectedImageSrc, panelOpen]);
 
   // Focus URL input when switching to URL mode
   useEffect(() => {
@@ -176,8 +207,13 @@ const ImageButton = () => {
 
     setError("");
 
-    // Insert as a direct-src image node — no upload, no map lookup needed
-    editor?.chain().focus().insertImageFromUrl(trimmedUrl).run();
+    // If a URL-based image is currently selected (has src but no assetId), update it
+    if (isImageActive && selectedImageSrc) {
+      editor?.chain().focus().updateAttributes("image", { src: trimmedUrl }).run();
+    } else {
+      // Otherwise insert a new image node with src directly
+      editor?.chain().focus().insertImageFromUrl(trimmedUrl).run();
+    }
 
     setTimeout(() => {
       setPanelOpen(false);
