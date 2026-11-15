@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, BadgeCheck, FileText, Mail, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
+import { ArrowRight, BadgeCheck, FileText, LogOut, Mail, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ export default function Profile() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const [isLogoutConfirming, setIsLogoutConfirming] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -24,6 +25,19 @@ export default function Profile() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [navigate]);
+
+  const handleLogout = async () => {
+    setIsLogoutConfirming(true);
+    try {
+      await api.post('/auth/logout');
+      toast.success('Logged out successfully');
+      navigate('/login', { replace: true });
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to log out. Please try again.');
+    } finally {
+      setIsLogoutConfirming(false);
+    }
+  };
 
   if (loading) return <main className="min-h-screen bg-[#f7faff] px-4 py-6 sm:px-6"><div className="mx-auto max-w-3xl animate-pulse"><div className="h-4 w-28 rounded-full bg-blue-100" /><div className="mt-3 h-8 w-52 rounded-xl bg-slate-200" /><div className="mt-7 h-64 rounded-3xl bg-white shadow-sm" /></div></main>;
   if (!user) return null;
@@ -75,6 +89,28 @@ export default function Profile() {
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Link to="/documents" className="group rounded-2xl border border-blue-100 bg-white/80 p-4 shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-100/50"><div className="flex items-center justify-between"><span className="flex size-11 items-center justify-center rounded-xl bg-blue-50 text-[#0b57d0]"><FileText className="size-5" /></span><ArrowRight className="size-4 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-blue-500" /></div><p className="mt-4 font-semibold text-slate-900">My documents</p><p className="mt-1 text-sm text-slate-500">Return to your writing workspace.</p></Link>
           <Link to="/" className="group rounded-2xl border border-violet-100 bg-white/80 p-4 shadow-sm transition-all hover:-translate-y-1 hover:border-violet-200 hover:shadow-lg hover:shadow-violet-100/50"><div className="flex items-center justify-between"><span className="flex size-11 items-center justify-center rounded-xl bg-violet-50 text-violet-600"><BadgeCheck className="size-5" /></span><ArrowRight className="size-4 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-violet-500" /></div><p className="mt-4 font-semibold text-slate-900">Back to WriteFlow</p><p className="mt-1 text-sm text-slate-500">Keep exploring your workspace.</p></Link>
+        </div>
+
+        {/* Logout Section */}
+        <div className="mt-6 rounded-2xl border border-red-100 bg-red-50/50 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-red-100 text-red-600">
+                <LogOut className="size-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-slate-900">Sign out</p>
+                <p className="text-sm text-slate-600">Log out of your account on this device</p>
+              </div>
+            </div>
+            <Button
+              onClick={handleLogout}
+              variant="outline"
+              className="border-red-200 bg-white text-red-600 hover:bg-red-50 hover:border-red-300 hover:text-red-700"
+            >
+              {isLogoutConfirming ? 'Signing out...' : 'Sign out'}
+            </Button>
+          </div>
         </div>
       </div>
     </main>

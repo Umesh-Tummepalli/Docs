@@ -70,6 +70,7 @@ WriteFlow supports:
 * Email/password authentication
 * Google OAuth
 * Password hashing with bcrypt
+* Email-verified local registration using Brevo OTP emails
 * Server-side sessions stored in Redis
 * HTTP-only authentication cookies
 
@@ -519,6 +520,11 @@ AWS_ACCESS_KEY=
 AWS_SECRET_ACCESS_KEY=
 AWS_REGION=
 AWS_S3_BUCKET=
+
+# Email verification for local registration
+BREVO_API_KEY=
+BREVO_EMAIL_VERIFICATION_TEMPLATE_ID=2
+OTP_PEPPER=
 ```
 
 ### Frontend
@@ -600,6 +606,8 @@ The backend exposes REST APIs for:
 
 ```text
 /auth
+├── send-otp
+├── verify-otp
 ├── register
 ├── login
 ├── me

@@ -19,7 +19,7 @@ const directDocumentFlush = (activeDocuments) => {
   setInterval(async () => {
     // Collect all documents that need to be flushed
     const documentsToFlush = [];
-    
+
     for (const [docId, state] of activeDocuments) {
       if (state.saveScheduled === false) {
         try {
@@ -51,18 +51,18 @@ const directDocumentFlush = (activeDocuments) => {
     try {
       // Execute all updates in a single bulk operation
       const result = await Document.bulkWrite(bulkOps, { ordered: false });
-      
+
       // Mark all successfully flushed documents as saved
       documentsToFlush.forEach(({ docId, state }) => {
         state.saveScheduled = true;
       });
-      
+
       console.log(`[flush] Successfully saved ${result.modifiedCount} documents to DB in batch.`);
     } catch (err) {
       // On bulk write error, keep saveScheduled = false for all documents
       // so they'll be retried in the next cycle
       console.error(`[flush] Bulk write failed:`, err.message);
-      
+
       // Optional: Try to identify which specific documents failed if needed
       if (err.writeErrors) {
         err.writeErrors.forEach((writeError) => {
