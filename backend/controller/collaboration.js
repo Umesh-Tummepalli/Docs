@@ -13,7 +13,7 @@ import Document from "../models/documentModel.js";
 import directDocumentFlush from "../utils/saveDocuments.js";
 import { cleanUnusedAssets } from "../utils/yDocUtils.js";
 
-// docId → { ydoc: Y.Doc, awareness: Awareness, saveScheduled: boolean }
+// docId → { ydoc: Y.Doc, awareness: Awareness, saveScheduled: boolean, hasLocalChanges: boolean }
 const activeDocuments = new Map();
 
 // ── Auth middleware ──────────────────────────────────────────────────────────
@@ -64,7 +64,8 @@ io.on("connection", (socket) => {
 
         // saveScheduled: true → content matches DB, no flush needed yet.
         // It is flipped to false whenever a docUpdate arrives.
-        documentState = { ydoc, awareness, saveScheduled: true };
+        // hasLocalChanges: true → document was modified since loaded from DB
+        documentState = { ydoc, awareness, saveScheduled: true, hasLocalChanges: false };
         activeDocuments.set(docId, documentState);
       }
 
@@ -106,6 +107,8 @@ io.on("connection", (socket) => {
 
     // Mark as modified so the next flush cycle picks it up.
     documentState.saveScheduled = false;
+    // Track that document was actually modified since loaded
+    documentState.hasLocalChanges = true;
 
     // Broadcast to everyone else in the room.
     socket.to(docId).emit("docUpdate", data);
@@ -161,10 +164,14 @@ io.on("connection", (socket) => {
     if (!room || room.size === 0) {
       const finalState = activeDocuments.get(docId);
       activeDocuments.delete(docId);
-      if (finalState) {
+      if (finalState && finalState.hasLocalChanges) {
         await onRoomEmpty(docId, finalState.ydoc).catch((err) =>
           console.error(`onRoomEmpty failed for ${docId}:`, err)
         );
+      } else if (finalState) {
+        // No local changes, just clean up Redis
+        await redis.del(`active:doc:${docId}`);
+        console.log(`[onRoomEmpty] Document ${docId} marked inactive (no changes).`);
       }
     } else {
       // Room still has users — remove only this user from the active set.

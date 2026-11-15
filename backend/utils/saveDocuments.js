@@ -8,9 +8,12 @@ const FLUSH_INTERVAL_MS = 60_000; // flush every 60 seconds
  *
  * saveScheduled: false → document was modified since the last save
  * saveScheduled: true  → content is in sync with DB, no save needed
+ * hasLocalChanges: true → document was modified since it was loaded from DB
  *
  * The docUpdate handler sets saveScheduled = false whenever new content
- * arrives. This loop resets it to true only after a successful DB write.
+ * arrives, and hasLocalChanges = true to track actual modifications.
+ * This loop resets saveScheduled to true only after a successful DB write,
+ * and resets hasLocalChanges to false since the content is now synced.
  *
  * This implementation uses bulkWrite to batch all updates into a single
  * MongoDB query, significantly reducing server load and improving throughput.
