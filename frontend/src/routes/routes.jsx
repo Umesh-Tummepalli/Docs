@@ -6,6 +6,8 @@ import Document from "../components/docs-ui/Document.jsx";
 import NotFound from "../components/NotFound.jsx"
 import Login from "../components/auth/Login.jsx";
 import Register from "../components/auth/Register.jsx";
+import ForgotPassword from "../components/auth/ForgotPassword.jsx";
+import ResetPassword from "../components/auth/ResetPassword.jsx";
 import Profile from "../components/Profile.jsx";
 
 const router = createBrowserRouter([
@@ -24,6 +26,14 @@ const router = createBrowserRouter([
       {
         path: "/register",
         element: <Register />,
+      },
+      {
+        path: "/forgot-password",
+        element: <ForgotPassword />,
+      },
+      {
+        path: "/reset-password",
+        element: <ResetPassword />,
       },
       {
         path: "/profile",

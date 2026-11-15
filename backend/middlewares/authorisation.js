@@ -3,19 +3,53 @@ import mongoose from "mongoose";
 import documentAccessModel from "../models/documentAccessModel.js";
 import DocumentAccessToken from "../models/documentAccessToken.js";
 
-export const basicAuthorisation = async (req, res, next) => {
+const isProd = process.env.NODE_ENV === "production";
+
+const clearSessionCookie = (res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+  });
+};
+
+const loadSessionUser = async (req, res) => {
   const token = req?.cookies?.token;
-  if (!token) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
+  if (!token) return null;
+
   const sessionData = await redis.get(`session:${token}`);
   if (!sessionData) {
-    res.clearCookie('token');
-    return res.status(401).json({ message: "Unauthorized" });
+    clearSessionCookie(res);
+    return null;
   }
-  req.user = JSON.parse(sessionData);
-  req.user.id = new mongoose.Types.ObjectId(req.user.id);
-  next();
+
+  try {
+    const session = JSON.parse(sessionData);
+    const expiresAt = new Date(session.expiresAt).getTime();
+    if (!session.id || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      await redis.del(`session:${token}`);
+      clearSessionCookie(res);
+      return null;
+    }
+
+    return { ...session, id: new mongoose.Types.ObjectId(session.id) };
+  } catch {
+    await redis.del(`session:${token}`);
+    clearSessionCookie(res);
+    return null;
+  }
+};
+
+export const basicAuthorisation = async (req, res, next) => {
+  try {
+    const user = await loadSessionUser(req, res);
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
+
+    req.user = user;
+    return next();
+  } catch (error) {
+    return next(error);
+  }
 };
 
 export const documentAuthorisation = async (req, res, next) => {
@@ -62,16 +96,13 @@ export const documentAuthorisation = async (req, res, next) => {
 
 export const documentAccessAuthorisation = async (req, res, next) => {
   if (typeof req.query.access === "string" && req.query.access) {
-    const sessionToken = req?.cookies?.token;
-    if (sessionToken) {
-      const sessionData = await redis.get(`session:${sessionToken}`);
-      if (sessionData) {
-        const user = JSON.parse(sessionData);
-        req.user = { ...user, id: new mongoose.Types.ObjectId(user.id) };
-      }
+    try {
+      const user = await loadSessionUser(req, res);
+      if (user) req.user = user;
+      return documentAuthorisation(req, res, next);
+    } catch (error) {
+      return next(error);
     }
-
-    return documentAuthorisation(req, res, next);
   }
 
   return basicAuthorisation(req, res, (error) => {

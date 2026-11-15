@@ -1,6 +1,7 @@
 import { BrevoClient } from "@getbrevo/brevo";
 
 const OTP_EXPIRY_MINUTES = 10;
+// The reset template must describe the same lifetime enforced by Redis.
 const PASSWORD_RESET_EXPIRY_MINUTES = 10;
 const BREVO_TEMPLATE_ID = Number.parseInt(process.env.BREVO_EMAIL_VERIFICATION_TEMPLATE_ID || "2", 10);
 const PASSWORD_RESET_TEMPLATE_ID = Number.parseInt(process.env.BREVO_PASSWORD_RESET_TEMPLATE_ID || "1", 10);
@@ -41,4 +42,24 @@ export const sendRegistrationOtpEmail = async ({ email, otp }) => {
   });
 };
 
-export { OTP_EXPIRY_MINUTES };
+export const sendPasswordResetEmail = async ({ user, resetLink }) => {
+  if (!Number.isInteger(PASSWORD_RESET_TEMPLATE_ID)) {
+    throw new Error("BREVO_PASSWORD_RESET_TEMPLATE_ID must be a number");
+  }
+
+  const brevo = getBrevoClient();
+
+  await brevo.transactionalEmails.sendTransacEmail({
+    to: [{ email: user.email, name: user.username }],
+    templateId: PASSWORD_RESET_TEMPLATE_ID,
+    params: {
+      username: user.username,
+      email: user.email,
+      reset_link: resetLink,
+      expiry_minutes: PASSWORD_RESET_EXPIRY_MINUTES,
+      year: new Date().getFullYear(),
+    },
+  });
+};
+
+export { OTP_EXPIRY_MINUTES, PASSWORD_RESET_EXPIRY_MINUTES };

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,27 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const from = searchParams.get('from') || '/documents';
+
+  useEffect(() => {
+    let active = true;
+
+    api.get('/auth/me')
+      .then((response) => {
+        if (active && response.data?.success) navigate('/documents', { replace: true });
+      })
+      .catch(() => {
+        // A missing or expired session is expected for a visitor opening sign-in.
+      })
+      .finally(() => {
+        if (active) setIsCheckingSession(false);
+      });
+
+    return () => { active = false; };
+  }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -47,6 +65,14 @@ const Login = () => {
   };
 
 
+
+  if (isCheckingSession) {
+    return (
+      <div className="flex min-h-[calc(100vh-73px)] items-center justify-center bg-slate-50" aria-label="Checking sign-in status">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#0b57d0]/20 border-t-[#0b57d0]" />
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex min-h-[calc(100vh-73px)] items-center justify-center overflow-hidden bg-slate-50 px-4 py-10 font-sans sm:px-6">
@@ -93,9 +119,9 @@ const Login = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password" className="text-sm font-medium text-slate-700">Password</Label>
-                  <a href="#" className="text-sm font-medium text-[#0b57d0] hover:text-[#0b57d0]/90 hover:underline transition-all">
+                  <Link to="/forgot-password" className="text-sm font-medium text-[#0b57d0] hover:text-[#0b57d0]/90 hover:underline transition-all">
                     Forgot password?
-                  </a>
+                  </Link>
                 </div>
                 <Input
                   id="password"

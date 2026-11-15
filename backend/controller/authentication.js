@@ -1,9 +1,9 @@
 import User from "../models/userModel.js";
 import redis from "../config/redis.js";
-import { createHmac, randomBytes, randomInt, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomInt, randomUUID } from "node:crypto";
 import bcrypt from "bcrypt";
 import { OAuth2Client } from "google-auth-library";
-import { OTP_EXPIRY_MINUTES, sendRegistrationOtpEmail } from "../utils/email.js";
+import { OTP_EXPIRY_MINUTES, PASSWORD_RESET_EXPIRY_MINUTES, sendPasswordResetEmail, sendRegistrationOtpEmail } from "../utils/email.js";
 
 const expiresIn = 30 * 24 * 60 * 60;
 const isProd = process.env.NODE_ENV === "production";
@@ -14,6 +14,8 @@ const OTP_MAX_ATTEMPTS = 5;
 const OTP_RESEND_COOLDOWN_SECONDS = 60;
 const OTP_MAX_REQUESTS_PER_HOUR = 5;
 const REGISTRATION_COOKIE_NAME = "registration_token";
+const PASSWORD_RESET_TTL_SECONDS = PASSWORD_RESET_EXPIRY_MINUTES * 60;
+const PASSWORD_RESET_MAX_REQUESTS_PER_HOUR = 5;
 
 const googleClient = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
@@ -44,6 +46,14 @@ const setSessionCookie = (res, token) => {
   });
 };
 
+const clearSessionCookie = (res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+  });
+};
+
 const setRegistrationProofCookie = (res, token) => {
   res.cookie(REGISTRATION_COOKIE_NAME, token, {
     httpOnly: true,
@@ -65,6 +75,62 @@ const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const otpKey = (email) => `registration:otp:${email}`;
 const proofKey = (token) => `registration:verified:${token}`;
+const passwordResetKey = (tokenHash) => `password-reset:${tokenHash}`;
+const passwordResetUserKey = (userId) => `password-reset:user:${userId}`;
+const getPasswordResetTokenHash = (token) => createHash("sha256").update(token).digest("hex");
+const isPasswordResetEligible = (user) => Boolean(
+  user?.password && !user.authProviders?.some(({ provider }) => provider && provider !== "local")
+);
+const getFrontendUrl = () => (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+
+const consumePasswordResetProof = async (tokenHash) => {
+  const script = `
+    local proof = redis.call("GET", KEYS[1])
+    if not proof then
+      return false
+    end
+
+    local decodedProof = cjson.decode(proof)
+    if not decodedProof.userId then
+      redis.call("DEL", KEYS[1])
+      return false
+    end
+
+    local userKey = "password-reset:user:" .. decodedProof.userId
+    if redis.call("GET", userKey) ~= ARGV[1] then
+      redis.call("DEL", KEYS[1])
+      return false
+    end
+
+    redis.call("DEL", KEYS[1])
+    redis.call("DEL", userKey)
+    return proof
+  `;
+
+  return redis.eval(script, 1, passwordResetKey(tokenHash), tokenHash);
+};
+
+const invalidateUserSessions = async (userId) => {
+  let cursor = "0";
+  const sessionKeysToDelete = [];
+
+  do {
+    const [nextCursor, sessionKeys] = await redis.scan(cursor, "MATCH", "session:*", "COUNT", 100);
+    cursor = nextCursor;
+    if (sessionKeys.length) {
+      const sessions = await redis.mget(sessionKeys);
+      sessionKeys.forEach((key, index) => {
+        try {
+          if (JSON.parse(sessions[index])?.id === userId) sessionKeysToDelete.push(key);
+        } catch {
+          // Ignore malformed or expired session entries.
+        }
+      });
+    }
+  } while (cursor !== "0");
+
+  if (sessionKeysToDelete.length) await redis.del(...sessionKeysToDelete);
+};
 
 const getOtpHash = (email, otp) => {
   if (!process.env.OTP_PEPPER) {
@@ -276,6 +342,111 @@ export const handleNormalRegistration = async (req, res) => {
   }
 };
 
+export const requestPasswordReset = async (req, res) => {
+  const genericResponse = {
+    message: "If an eligible account exists for this email, a password reset link has been sent.",
+    success: true,
+  };
+
+  try {
+    const email = normalizeEmail(req.body?.email);
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ message: "Please enter a valid email address", success: false });
+    }
+
+    const withinEmailLimit = await incrementRateLimit(
+      `password-reset:request:${email}`,
+      PASSWORD_RESET_MAX_REQUESTS_PER_HOUR
+    );
+    if (!withinEmailLimit) {
+      return res.status(200).json(genericResponse);
+    }
+
+    const user = await User.findOne({ email }).select("_id email username password authProviders").lean();
+    if (!isPasswordResetEligible(user)) {
+      return res.status(200).json(genericResponse);
+    }
+
+    const resetToken = randomBytes(32).toString("base64url");
+    const tokenHash = getPasswordResetTokenHash(resetToken);
+    const resetLink = `${getFrontendUrl()}/reset-password?reset_token=${encodeURIComponent(resetToken)}`;
+
+    const existingTokenHash = await redis.get(passwordResetUserKey(user._id.toString()));
+    const transaction = redis.multi();
+    if (existingTokenHash) transaction.del(passwordResetKey(existingTokenHash));
+    transaction
+      .set(
+        passwordResetKey(tokenHash),
+        JSON.stringify({ userId: user._id.toString(), purpose: "password_reset" }),
+        "EX",
+        PASSWORD_RESET_TTL_SECONDS
+      )
+      .set(passwordResetUserKey(user._id.toString()), tokenHash, "EX", PASSWORD_RESET_TTL_SECONDS);
+    await transaction.exec();
+
+    try {
+      await sendPasswordResetEmail({ user, resetLink });
+    } catch (emailError) {
+      const cleanup = redis.multi().del(passwordResetKey(tokenHash));
+      const currentTokenHash = await redis.get(passwordResetUserKey(user._id.toString()));
+      if (currentTokenHash === tokenHash) cleanup.del(passwordResetUserKey(user._id.toString()));
+      await cleanup.exec();
+      throw emailError;
+    }
+
+    return res.status(200).json(genericResponse);
+  } catch (error) {
+    console.error("Password reset request error:", error.message);
+    return res.status(500).json({ message: "Unable to request a password reset. Please try again.", success: false });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    const resetToken = String(req.body?.reset_token || req.query?.reset_token || "").trim();
+    const { password, confirmPassword } = req.body || {};
+
+    if (!resetToken || !password || !confirmPassword) {
+      return res.status(400).json({ message: "Reset token, password, and password confirmation are required", success: false });
+    }
+    if (password !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match", success: false });
+    }
+
+    const tokenHash = getPasswordResetTokenHash(resetToken);
+    const rawProof = await consumePasswordResetProof(tokenHash);
+    if (!rawProof) {
+      return res.status(400).json({ message: "This password reset link is invalid or has expired", success: false });
+    }
+
+    let proof;
+    try {
+      proof = JSON.parse(rawProof);
+    } catch {
+      return res.status(400).json({ message: "This password reset link is invalid or has expired", success: false });
+    }
+    if (proof.purpose !== "password_reset" || !proof.userId) {
+      return res.status(400).json({ message: "This password reset link is invalid or has expired", success: false });
+    }
+
+    const user = await User.findById(proof.userId).select("_id password authProviders");
+    if (!isPasswordResetEligible(user)) {
+      return res.status(400).json({ message: "This password reset link is invalid or has expired", success: false });
+    }
+
+    user.password = await bcrypt.hash(password, 10);
+    await user.save();
+
+    await invalidateUserSessions(user._id.toString());
+
+    clearSessionCookie(res);
+    return res.status(200).json({ message: "Password reset successfully. Please sign in with your new password.", success: true });
+  } catch (error) {
+    console.error("Password reset error:", error.message);
+    return res.status(500).json({ message: "Unable to reset password. Please request a new link.", success: false });
+  }
+};
+
 export const handleNormalLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -306,7 +477,10 @@ export const getCurrentUser = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("_id username email authProviders");
     if (!user) {
-      return res.status(404).json({ message: "User not found", success: false });
+      const token = req.cookies?.token;
+      if (token) await redis.del(`session:${token}`);
+      clearSessionCookie(res);
+      return res.status(401).json({ message: "Unauthorized", success: false });
     }
 
     return res.status(200).json({
@@ -394,11 +568,7 @@ export const handleLogout = async (req, res) => {
       await redis.del(`session:${token}`);
     }
 
-    res.clearCookie("token", {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? "none" : "lax",
-    });
+    clearSessionCookie(res);
 
     return res.status(200).json({ message: "Logged out successfully", success: true });
   } catch (error) {

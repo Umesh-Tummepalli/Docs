@@ -71,10 +71,13 @@ WriteFlow supports:
 * Google OAuth
 * Password hashing with bcrypt
 * Email-verified local registration using Brevo OTP emails
+* Redis-backed password reset links for local-password accounts
 * Server-side sessions stored in Redis
 * HTTP-only authentication cookies
 
 Sessions are stored server-side rather than putting the complete session state inside a browser-accessible token.
+
+Password-reset links use a cryptographically random 32-byte token. Only its SHA-256 hash and user ID are kept in Redis for 10 minutes; the raw token is included only in the email link, is single-use, and only one outstanding link is retained for each user. Resets are unavailable to OAuth-linked accounts. Resetting a password invalidates the user’s active Redis sessions.
 
 ---
 

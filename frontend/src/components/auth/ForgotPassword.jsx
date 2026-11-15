@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "motion/react";
 import { ArrowLeft, ArrowRight, FileText, Mail, MailCheck } from "lucide-react";
 import { toast } from "react-toastify";
@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import api from "@/lib/api";
 
 const ForgotPassword = () => {
-  const [email, setEmail] = useState("");
+  const [searchParams] = useSearchParams();
+  const [email, setEmail] = useState(searchParams.get("email") || "");
   const [isSending, setIsSending] = useState(false);
   const [isSent, setIsSent] = useState(false);
 

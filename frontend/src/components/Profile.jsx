@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, BadgeCheck, FileText, LogOut, Mail, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
+import { ArrowRight, FileText, KeyRound, LogOut, Mail, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -88,7 +88,11 @@ export default function Profile() {
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Link to="/documents" className="group rounded-2xl border border-blue-100 bg-white/80 p-4 shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-100/50"><div className="flex items-center justify-between"><span className="flex size-11 items-center justify-center rounded-xl bg-blue-50 text-[#0b57d0]"><FileText className="size-5" /></span><ArrowRight className="size-4 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-blue-500" /></div><p className="mt-4 font-semibold text-slate-900">My documents</p><p className="mt-1 text-sm text-slate-500">Return to your writing workspace.</p></Link>
-          <Link to="/" className="group rounded-2xl border border-violet-100 bg-white/80 p-4 shadow-sm transition-all hover:-translate-y-1 hover:border-violet-200 hover:shadow-lg hover:shadow-violet-100/50"><div className="flex items-center justify-between"><span className="flex size-11 items-center justify-center rounded-xl bg-violet-50 text-violet-600"><BadgeCheck className="size-5" /></span><ArrowRight className="size-4 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-violet-500" /></div><p className="mt-4 font-semibold text-slate-900">Back to WriteFlow</p><p className="mt-1 text-sm text-slate-500">Keep exploring your workspace.</p></Link>
+          {providers.length === 1 && providers[0] === 'local' ? (
+            <Link to={`/forgot-password?email=${encodeURIComponent(user.email)}`} className="group rounded-2xl border border-violet-100 bg-white/80 p-4 shadow-sm transition-all hover:-translate-y-1 hover:border-violet-200 hover:shadow-lg hover:shadow-violet-100/50"><div className="flex items-center justify-between"><span className="flex size-11 items-center justify-center rounded-xl bg-violet-50 text-violet-600"><KeyRound className="size-5" /></span><ArrowRight className="size-4 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-violet-500" /></div><p className="mt-4 font-semibold text-slate-900">Reset password</p><p className="mt-1 text-sm text-slate-500">Send a secure password-reset link to your email.</p></Link>
+          ) : (
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"><div className="flex size-11 items-center justify-center rounded-xl bg-slate-100 text-slate-400"><KeyRound className="size-5" /></div><p className="mt-4 font-semibold text-slate-600">Password reset unavailable</p><p className="mt-1 text-sm text-slate-500">This account uses an OAuth sign-in method.</p></div>
+          )}
         </div>
 
         {/* Logout Section */}
