@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, FileText, KeyRound, LogOut, Mail, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
+import { ArrowRight, FileText, KeyRound, LogOut, Mail, ShieldCheck, Sparkles, UserRound, Pencil } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,10 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const [isLogoutConfirming, setIsLogoutConfirming] = useState(false);
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [editedUsername, setEditedUsername] = useState('');
+  const [isUpdatingUsername, setIsUpdatingUsername] = useState(false);
+  const usernameInputRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -36,6 +40,53 @@ export default function Profile() {
       toast.error(error.response?.data?.message || 'Failed to log out. Please try again.');
     } finally {
       setIsLogoutConfirming(false);
+    }
+  };
+
+  const startEditingUsername = () => {
+    setEditedUsername(user.username || '');
+    setIsEditingUsername(true);
+    setTimeout(() => usernameInputRef.current?.focus(), 0);
+  };
+
+  const cancelEditingUsername = () => {
+    setIsEditingUsername(false);
+    setEditedUsername('');
+  };
+
+  const saveUsername = async () => {
+    const trimmedUsername = editedUsername.trim();
+    if (!trimmedUsername) {
+      toast.error('Username cannot be empty');
+      return;
+    }
+    if (trimmedUsername.length < 2 || trimmedUsername.length > 50) {
+      toast.error('Username must be between 2 and 50 characters');
+      return;
+    }
+    if (trimmedUsername === user.username) {
+      setIsEditingUsername(false);
+      return;
+    }
+
+    setIsUpdatingUsername(true);
+    try {
+      const response = await api.patch('/auth/username', { username: trimmedUsername });
+      setUser(prev => ({ ...prev, username: response.data.username }));
+      toast.success('Username updated successfully');
+      setIsEditingUsername(false);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update username');
+    } finally {
+      setIsUpdatingUsername(false);
+    }
+  };
+
+  const handleUsernameKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      saveUsername();
+    } else if (e.key === 'Escape') {
+      cancelEditingUsername();
     }
   };
 
@@ -70,7 +121,37 @@ export default function Profile() {
             <div className="-mt-9 flex flex-col gap-4 sm:-mt-10 sm:flex-row sm:items-end sm:justify-between">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
                 <Avatar className="size-20 border-[5px] border-white bg-white shadow-xl sm:size-24"><AvatarFallback className="bg-gradient-to-br from-blue-100 to-violet-100 text-4xl font-bold text-[#0b57d0]">{initial}</AvatarFallback></Avatar>
-                <div className="pb-1"><h2 className="text-xl font-bold text-slate-950 sm:text-2xl">{user.username || 'WriteFlow member'}</h2><p className="mt-1 flex items-center gap-2 text-sm text-slate-500"><Mail className="size-4 text-blue-500" />{user.email}</p></div>
+                <div className="pb-1">
+                  {isEditingUsername ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={usernameInputRef}
+                        type="text"
+                        value={editedUsername}
+                        onChange={(e) => setEditedUsername(e.target.value)}
+                        onKeyDown={handleUsernameKeyDown}
+                        onBlur={saveUsername}
+                        className="text-xl font-bold text-slate-950 sm:text-2xl border-b-2 border-blue-500 focus:outline-none bg-transparent px-1 py-0.5 min-w-[120px]"
+                        maxLength={50}
+                      />
+                      {isUpdatingUsername && (
+                        <span className="text-sm text-slate-400">Saving...</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-bold text-slate-950 sm:text-2xl">{user.username || 'WriteFlow member'}</h2>
+                      <button
+                        onClick={startEditingUsername}
+                        className="text-slate-400 hover:text-[#0b57d0] transition-colors p-1"
+                        title="Edit username"
+                      >
+                        <Pencil className="size-4" />
+                      </button>
+                    </div>
+                  )}
+                  <p className="mt-1 flex items-center gap-2 text-sm text-slate-500"><Mail className="size-4 text-blue-500" />{user.email}</p>
+                </div>
               </div>
               <span className="w-fit rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">Account active</span>
             </div>

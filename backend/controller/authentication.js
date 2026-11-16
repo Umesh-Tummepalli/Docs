@@ -576,3 +576,43 @@ export const handleLogout = async (req, res) => {
     return res.status(500).json({ message: "Failed to log out", success: false });
   }
 };
+
+export const updateUsername = async (req, res) => {
+  try {
+    const { username } = req.body;
+    const userId = req.user.id;
+
+    if (!username?.trim()) {
+      return res.status(400).json({ message: "Username is required", success: false });
+    }
+
+    const trimmedUsername = username.trim();
+    if (trimmedUsername.length < 2 || trimmedUsername.length > 50) {
+      return res.status(400).json({ message: "Username must be between 2 and 50 characters", success: false });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found", success: false });
+    }
+
+    user.username = trimmedUsername;
+    await user.save();
+
+    // Update session data with new username
+    const token = req.cookies?.token;
+    if (token) {
+      const sessionData = await redis.get(`session:${token}`);
+      if (sessionData) {
+        const session = JSON.parse(sessionData);
+        session.username = trimmedUsername;
+        await redis.set(`session:${token}`, JSON.stringify(session), "EX", expiresIn);
+      }
+    }
+
+    return res.status(200).json({ message: "Username updated successfully", success: true, username: trimmedUsername });
+  } catch (error) {
+    console.error("Update username error:", error);
+    return res.status(500).json({ message: "Failed to update username", success: false });
+  }
+};

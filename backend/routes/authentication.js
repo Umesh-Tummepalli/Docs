@@ -1,5 +1,5 @@
 import express from "express"
-import { getCurrentUser, handleGoogleAuth, handleNormalLogin, handleNormalRegistration, handleLogout, requestPasswordReset, resetPassword, sendOtp, verifyOtp } from "../controller/authentication.js";
+import { getCurrentUser, handleGoogleAuth, handleNormalLogin, handleNormalRegistration, handleLogout, requestPasswordReset, resetPassword, sendOtp, verifyOtp, updateUsername } from "../controller/authentication.js";
 import { basicAuthorisation } from "../middlewares/authorisation.js";
 
 const router = express.Router();
@@ -13,6 +13,8 @@ router.post('/reset-password', resetPassword);
 router.post('/login', handleNormalLogin);
 
 router.get('/me', basicAuthorisation, getCurrentUser);
+
+router.patch('/username', basicAuthorisation, updateUsername);
 
 router.post('/logout', handleLogout);
 
