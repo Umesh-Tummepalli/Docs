@@ -115,7 +115,6 @@ export default function Profile() {
           <div className="relative h-24 overflow-hidden bg-gradient-to-br from-[#0b57d0] via-blue-600 to-violet-600 sm:h-28">
             <div className="absolute -right-10 -top-24 size-72 rounded-full border-[36px] border-white/10" />
             <div className="absolute bottom-[-5rem] left-1/3 size-56 rounded-full border-[28px] border-white/10" />
-            <p className="absolute right-6 top-6 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white/90 ring-1 ring-white/20">Member account</p>
           </div>
           <div className="relative px-5 pb-5 sm:px-7 sm:pb-7">
             <div className="-mt-9 flex flex-col gap-4 sm:-mt-10 sm:flex-row sm:items-end sm:justify-between">
@@ -153,12 +152,11 @@ export default function Profile() {
                   <p className="mt-1 flex items-center gap-2 text-sm text-slate-500"><Mail className="size-4 text-blue-500" />{user.email}</p>
                 </div>
               </div>
-              <span className="w-fit rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">Account active</span>
             </div>
 
             <div className="mt-6 grid gap-3 md:grid-cols-2">
               <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-white p-4 transition-transform hover:-translate-y-0.5">
-                <div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-white text-[#0b57d0] shadow-sm ring-1 ring-blue-100"><UserRound className="size-5" /></span><div><p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Username</p><p className="mt-1 break-all font-semibold text-slate-800">{user.username || 'Not set'}</p></div></div>
+                <div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-white text-[#0b57d0] shadow-sm ring-1 ring-blue-100"><UserRound className="size-5" /></span><div><p className="text-xs font-semibold uppercase tracking-wider text-slate-400">User ID</p><p className="mt-1 break-all font-mono text-xs font-semibold text-slate-800">{user.id || 'Not available'}</p></div></div>
               </div>
               <div className="rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50/80 to-white p-4 transition-transform hover:-translate-y-0.5">
                 <div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-white text-violet-600 shadow-sm ring-1 ring-violet-100"><ShieldCheck className="size-5" /></span><div><p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Sign-in methods</p><div className="mt-2 flex flex-wrap gap-2">{providers.map((provider) => <span key={provider} className="rounded-full bg-violet-100/80 px-2.5 py-1 text-xs font-semibold text-violet-700">{providerLabel(provider)}</span>)}</div></div></div>
