@@ -91,6 +91,7 @@ export default function Document() {
   const hasShareAccessToken = new URLSearchParams(location.search).has("access");
   const [status, setStatus] = useState("loading");
   const [docData, setDocData] = useState(null);
+  const [hasUnseenAccessChanges, setHasUnseenAccessChanges] = useState(false);
   const [isRequestingWrite, setIsRequestingWrite] = useState(false);
   const [title, setTitle] = useState("");
   const [isSavingTitle, setIsSavingTitle] = useState(false);
@@ -176,11 +177,30 @@ export default function Document() {
     setIsEditingTitle(false);
   };
 
+  const handlePermissionChanged = useCallback(() => {
+    fetchContent({ showLoading: false });
+  }, [fetchContent]);
+
+  const handleOwnerAccessChanged = useCallback(async () => {
+    setHasUnseenAccessChanges(true);
+    toast.info('Document access request or permission changed. Open Manage access to review.');
+    // The owner only refreshes the access/admin data, not the editor document.
+    const response = await api.get(`/documents/${docId}`);
+    const latest = response?.data?.document;
+    if (latest) {
+      setDocData((current) => current ? {
+        ...current,
+        accessList: latest.accessList,
+        accessRequests: latest.accessRequests,
+      } : current);
+    }
+  }, [docId, docData?.accessLevel]);
+
   if (status === "loading") {
     return <Loading />;
   }
   if (status === "access-denied") {
-    return <AccessDenied docId={docId} />;
+    return <AccessDenied docId={docId} onRefresh={() => fetchContent()} />;
   }
   if (status === "not-found") {
     return <DocumentNotFound />;
@@ -242,12 +262,14 @@ export default function Document() {
             docId={docId}
             accessList={docData.accessList}
             accessRequests={docData.accessRequests}
-            onUpdate={() => fetchContent({ showLoading: false })}
+             onUpdate={() => fetchContent({ showLoading: false })}
+             accessChanged={hasUnseenAccessChanges}
+             onAccessChangedSeen={() => setHasUnseenAccessChanges(false)}
           />
           )}
         </div>
       </div>
-      <YDocProvider docId={docId}>
+      <YDocProvider docId={docId} onPermissionChanged={handlePermissionChanged} onOwnerAccessChanged={handleOwnerAccessChanged}>
         <EditorView
           docId={docId}
           editable={["owner", "write"].includes(docData?.accessLevel)}

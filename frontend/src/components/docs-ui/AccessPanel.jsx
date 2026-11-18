@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check,
   ChevronDown,
@@ -36,10 +36,20 @@ const getTokenValue = (item) => {
   return item?.token || item?.accessToken || item?.value || item?.access_token;
 };
 
-const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate }) => {
+const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate, accessChanged = false, onAccessChangedSeen }) => {
   const [loadingAction, setLoadingAction] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [seenRequestCount, setSeenRequestCount] = useState(accessRequests.length);
+  const hasUnseenRequests = accessRequests.length > seenRequestCount;
+  const hasUnseenChanges = accessChanged || hasUnseenRequests;
+
+  useEffect(() => {
+    if (isOpen) {
+      setSeenRequestCount(accessRequests.length);
+      onAccessChangedSeen?.();
+    }
+  }, [isOpen, accessRequests.length, onAccessChangedSeen]);
   const [accessTokens, setAccessTokens] = useState([]);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [linkName, setLinkName] = useState("");
@@ -208,12 +218,15 @@ const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate }) 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => {
       setIsOpen(open);
-      if (open) loadAccessTokens();
+      if (open) {
+        onAccessChangedSeen?.();
+        loadAccessTokens();
+      }
     }}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="relative size-9 rounded-full text-slate-600 hover:bg-slate-100 hover:text-slate-900">
           <Users className="size-4.5" />
-          {accessRequests.length > 0 && <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">{accessRequests.length}</span>}
+          {hasUnseenChanges && <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">{accessRequests.length > 0 ? accessRequests.length : ""}</span>}
           <span className="sr-only">Manage document access</span>
         </Button>
       </SheetTrigger>

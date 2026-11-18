@@ -1,13 +1,30 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Edit3, Eye, FileLock2, Loader2, Send } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Edit3, Eye, FileLock2, Loader2, RefreshCw, Send } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import api from '@/lib/api';
 
-const AccessDenied = ({ docId }) => {
+const AccessDenied = ({ docId, onRefresh }) => {
   const [isRequesting, setIsRequesting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      onRefresh?.();
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, [onRefresh]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await onRefresh?.();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleRequestAccess = async () => {
     try {
@@ -48,6 +65,16 @@ const AccessDenied = ({ docId }) => {
             )}
 
             <div className="flex flex-col gap-3 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="h-12 border-slate-300 px-6 text-slate-700 hover:bg-slate-50"
+                >
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  Refresh access
+                </Button>
               <Button
                 type="button"
                 onClick={handleRequestAccess}

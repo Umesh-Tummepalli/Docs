@@ -17,7 +17,7 @@ function stringToColor(str) {
 
 
 
-export const YDocProvider = ({ docId, children }) => {
+export const YDocProvider = ({ docId, children, onPermissionChanged, onOwnerAccessChanged }) => {
   // The single Y.Doc for this document. Uses Yjs default (random) clientID.
   // Starts as null; the editor shows <Loading /> until it's set.
   const [yDoc, setYDoc] = useState(null);
@@ -86,6 +86,11 @@ export const YDocProvider = ({ docId, children }) => {
         prov.onSynced = () => {
           if (!cancelled) setSynced(true);
         };
+        prov.onAccessChanged = (change) => {
+          if (cancelled) return;
+          if (change?.audience === 'owner') onOwnerAccessChanged?.(change);
+          if (change?.audience === 'target') onPermissionChanged?.(change);
+        };
 
         // 6. Connect (opens the socket, joins the room, wires all listeners).
         prov.connect();
@@ -115,7 +120,7 @@ export const YDocProvider = ({ docId, children }) => {
       setYDoc(null);
       setDuplicateSession(false);
     };
-  }, [docId]);
+  }, [docId, onPermissionChanged, onOwnerAccessChanged]);
 
   return (
     <YDocContext.Provider value={{ yDoc, provider, synced, duplicateSession }}>

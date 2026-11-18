@@ -40,6 +40,8 @@ export class SocketIOYProvider {
 
     this._handleAwarenessUpdateFromServer =
       this._handleAwarenessUpdateFromServer.bind(this);
+
+    this._handleAccessChanged = this._handleAccessChanged.bind(this);
   }
 
   connect() {
@@ -125,11 +127,13 @@ export class SocketIOYProvider {
     });
 
     this.socket.on("error", (err) => {
-      console.error(
-        "Collaboration error:",
-        err
-      );
+      console.error("Collaboration error:", err);
     });
+    this.socket.on("accessChanged", this._handleAccessChanged);
+  }
+
+  _handleAccessChanged(change) {
+    if (this.onAccessChanged) this.onAccessChanged(change);
   }
 
   // =====================================================
@@ -224,6 +228,7 @@ export class SocketIOYProvider {
         "awarenessUpdate",
         this._handleAwarenessUpdateFromServer
       );
+      this.socket.off("accessChanged", this._handleAccessChanged);
 
       this.socket.disconnect();
 

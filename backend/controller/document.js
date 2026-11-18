@@ -1,6 +1,7 @@
 import redis from "../config/redis.js"
 import jwt from "jsonwebtoken"
 import crypto from "crypto";
+import mongoose from "mongoose";
 import puppeteer from "puppeteer";
 import { convertHtmlToDocx } from "../utils/docxExport.js";
 import * as Y from 'yjs';
@@ -13,6 +14,7 @@ import DocumentAccessToken from "../models/documentAccessToken.js"
 import DocumentAsset from "../models/documentAssetModel.js"
 
 import { generateAccessUrl, generateUploadUrl, getObjectMetadata, deleteObject } from "../utils/s3.js";
+import { syncDocumentUserAccess, removeDocumentUserAccess as revokeCollaboratorAccess, notifyDocumentAccessChanged, notifyDocumentOwners } from "../utils/collaborationAccess.js";
 
 
 const canEdit = (accessLevel) => ["owner", "write"].includes(accessLevel);
@@ -197,10 +199,11 @@ export const giveDocumentAccess = async (req, res) => {
 
     const payload = {
       docId: documentId,
-      userId: id,
+      userId: id ? id.toString() : undefined,
       accessLevel,
+      accessToken: req.user.accessToken ? (req.query.access || null) : null,
     };
-    const token = jwt.sign(payload, process.env.JWT_SECRET);
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30m' });
     res.status(200).json({ token, success: true });
   } catch (error) {
     res.status(500).json({ message: 'Internal server error', success: false });
@@ -271,10 +274,12 @@ export const getDocumentAccess = async (req, res) => {
 
       existingRequest.accessLevel = accessLevel;
       await existingRequest.save();
+      notifyDocumentOwners(documentId, id, accessLevel, 'requestUpdated');
       return res.status(200).json({ message: 'Access request updated successfully', success: true });
     }
 
     await DocumentAccessRequest.create({ documentId, userId: id, accessLevel });
+    notifyDocumentOwners(documentId, id, accessLevel, 'requestCreated');
     return res.status(201).json({ message: 'Access request created successfully', success: true });
   } catch (error) {
     if (error.code === 11000) {
@@ -312,6 +317,8 @@ export const approveAccessRequest = async (req, res) => {
       { $set: { accessLevel: grantedAccessLevel } },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
+    syncDocumentUserAccess(documentId, request.userId, grantedAccessLevel);
+    notifyDocumentAccessChanged(documentId, request.userId, grantedAccessLevel, 'approved');
 
     await DocumentAccessRequest.deleteOne({ _id: requestId, documentId });
 
@@ -338,6 +345,7 @@ export const denyAccessRequest = async (req, res) => {
       return res.status(404).json({ message: 'Request not found', success: false });
     }
 
+    notifyDocumentOwners(documentId, deleted.userId, deleted.accessLevel, 'denied');
     res.status(200).json({ message: 'Request denied successfully', success: true });
   } catch (error) {
     res.status(500).json({ message: 'Internal server error', success: false });
@@ -367,6 +375,8 @@ export const grantOwnerAccess = async (req, res) => {
 
     recipientAccess.accessLevel = 'owner';
     await recipientAccess.save();
+    syncDocumentUserAccess(documentId, userId, 'owner');
+    notifyDocumentAccessChanged(documentId, userId, 'owner', 'updated');
 
     return res.status(200).json({ message: 'Owner access granted successfully', success: true });
   } catch (error) {
@@ -381,6 +391,9 @@ export const updateDocumentUserAccess = async (req, res) => {
     const { documentId, userId } = req.params;
     const { accessLevel } = req.body;
 
+    if (!mongoose.isValidObjectId(documentId) || !mongoose.isValidObjectId(userId) || userId === 'null' || userId === 'undefined') {
+      return res.status(400).json({ message: 'A valid user ID and document ID are required', success: false });
+    }
     if (!['read', 'write', 'owner'].includes(accessLevel)) {
       return res.status(400).json({ message: 'Invalid access level', success: false });
     }
@@ -400,6 +413,8 @@ export const updateDocumentUserAccess = async (req, res) => {
 
     targetAccess.accessLevel = accessLevel;
     await targetAccess.save();
+    syncDocumentUserAccess(documentId, userId, accessLevel);
+    notifyDocumentAccessChanged(documentId, userId, accessLevel, 'updated');
 
     return res.status(200).json({
       message: 'Document access updated successfully',
@@ -417,6 +432,10 @@ export const removeDocumentUserAccess = async (req, res) => {
     const { id } = req.user;
     const { documentId, userId } = req.params;
 
+    if (!mongoose.isValidObjectId(documentId) || !mongoose.isValidObjectId(userId) || userId === 'null' || userId === 'undefined') {
+      return res.status(400).json({ message: 'A valid user ID and document ID are required', success: false });
+    }
+
     const requesterAccess = await DocumentAccess.findOne({ documentId, userId: id });
     if (!requesterAccess || requesterAccess.accessLevel !== 'owner') {
       return res.status(403).json({ message: 'Only document owners can remove access', success: false });
@@ -431,6 +450,8 @@ export const removeDocumentUserAccess = async (req, res) => {
     }
 
     await targetAccess.deleteOne();
+    revokeCollaboratorAccess(documentId, userId);
+    notifyDocumentAccessChanged(documentId, userId, null, 'removed');
     return res.status(200).json({ message: 'Document access removed successfully', success: true });
   } catch (error) {
     console.error('error from removeDocumentUserAccess document.js', error);

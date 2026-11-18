@@ -20,4 +20,6 @@ const DocumentAccessSchema = new mongoose.Schema({
 
 });
 
+DocumentAccessSchema.index({ documentId: 1, userId: 1 }, { unique: true });
+
 export default mongoose.model("DocumentAccess", DocumentAccessSchema);

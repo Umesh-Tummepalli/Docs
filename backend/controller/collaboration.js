@@ -10,7 +10,10 @@ import {
   removeAwarenessStates,
 } from "y-protocols/awareness";
 import Document from "../models/documentModel.js";
+import DocumentAccess from "../models/documentAccessModel.js";
+import DocumentAccessToken from "../models/documentAccessToken.js";
 import directDocumentFlush from "../utils/saveDocuments.js";
+import { registerDocumentUser, unregisterDocumentUser, syncDocumentUserAccess, clearDocumentAccessRegistry } from "../utils/collaborationAccess.js";
 import { cleanUnusedAssets } from "../utils/yDocUtils.js";
 
 // docId → { ydoc: Y.Doc, awareness: Awareness, saveScheduled: boolean, hasLocalChanges: boolean }
@@ -25,6 +28,9 @@ io.use((socket, next) => {
     socket.data.userId = payload.userId;
     socket.data.docId = payload.docId;
     socket.data.accessLevel = payload.accessLevel;
+    socket.data.accessToken = payload.accessToken || null;
+    if (!socket.data.docId) throw new Error("Invalid collaboration token");
+    if (!socket.data.accessToken && !socket.data.userId) throw new Error("Invalid collaboration token");
     // Set of Y.js clientIDs whose awareness state arrived via this socket.
     socket.data.awarenessClientIds = new Set();
     next();
@@ -61,6 +67,9 @@ io.on("connection", (socket) => {
 
         // One Awareness instance per document, shared by all sockets in the room.
         const awareness = new Awareness(ydoc);
+        // Seed the per-document access registry from MongoDB when the room starts.
+        const accessRows = await DocumentAccess.find({ documentId: docId }).select('userId accessLevel').lean();
+        for (const row of accessRows) registerDocumentUser(docId, row.userId, row.accessLevel);
 
         // saveScheduled: true → content matches DB, no flush needed yet.
         // It is flipped to false whenever a docUpdate arrives.
@@ -69,8 +78,20 @@ io.on("connection", (socket) => {
         activeDocuments.set(docId, documentState);
       }
 
+      // Re-read MongoDB permission at join time; JWT access is only a hint.
+      let currentAccess = null;
+      if (socket.data.accessToken) {
+        const accessToken = await DocumentAccessToken.findOne({ token: socket.data.accessToken, documentId: docId }).lean();
+        if (!accessToken) return socket.emit('error', 'Invalid document access token');
+        socket.data.accessLevel = accessToken.accessLevel;
+      } else {
+        currentAccess = await DocumentAccess.findOne({ documentId: docId, userId: socket.data.userId }).lean();
+        if (!currentAccess) return socket.emit("error", "Access revoked");
+        socket.data.accessLevel = currentAccess.accessLevel;
+        registerDocumentUser(docId, socket.data.userId, currentAccess.accessLevel, socket);
+      }
+
       // Track this user as an active participant in the document.
-      // SADD is idempotent so re-joining the same room is safe.
       await redis.sadd(`active:doc:${docId}`, socket.data.userId);
 
       const { ydoc, awareness } = documentState;
@@ -96,12 +117,20 @@ io.on("connection", (socket) => {
   // Y.DOC UPDATE
   // ─────────────────────────────────────────
 
-  socket.on("docUpdate", (data) => {
-    const { docId, accessLevel } = socket.data;
-    if (!docId || accessLevel === "read") return;
+  socket.on("docUpdate", async (data) => {
+    const { docId } = socket.data;
+    if (!docId) return;
 
     const documentState = activeDocuments.get(docId);
     if (!documentState) return;
+    const currentAccess = socket.data.accessToken
+      ? await DocumentAccessToken.findOne({ token: socket.data.accessToken, documentId: docId }).lean()
+      : await DocumentAccess.findOne({ documentId: docId, userId: socket.data.userId }).lean();
+    if (!currentAccess || !['owner', 'write'].includes(currentAccess.accessLevel)) {
+      socket.data.accessLevel = currentAccess?.accessLevel || null;
+      return socket.emit('error', 'Write access required');
+    }
+    socket.data.accessLevel = currentAccess.accessLevel;
 
     Y.applyUpdate(documentState.ydoc, new Uint8Array(data));
 
@@ -118,9 +147,14 @@ io.on("connection", (socket) => {
   // AWARENESS UPDATE
   // ─────────────────────────────────────────
 
-  socket.on("awarenessUpdate", (data) => {
+  socket.on("awarenessUpdate", async (data) => {
     const { docId } = socket.data;
     if (!docId) return;
+    const currentAccess = socket.data.accessToken
+      ? await DocumentAccessToken.findOne({ token: socket.data.accessToken, documentId: docId }).lean()
+      : await DocumentAccess.findOne({ documentId: docId, userId: socket.data.userId }).lean();
+    if (!currentAccess) return socket.emit('error', 'Access revoked');
+    socket.data.accessLevel = currentAccess.accessLevel;
 
     const documentState = activeDocuments.get(docId);
     if (!documentState) return;
@@ -147,6 +181,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", async () => {
     const { docId, awarenessClientIds } = socket.data;
     if (!docId) return;
+    unregisterDocumentUser(docId, socket.data.userId, socket);
 
     const documentState = activeDocuments.get(docId);
     if (documentState && awarenessClientIds?.size > 0) {
@@ -164,6 +199,7 @@ io.on("connection", (socket) => {
     if (!room || room.size === 0) {
       const finalState = activeDocuments.get(docId);
       activeDocuments.delete(docId);
+      clearDocumentAccessRegistry(docId);
       if (finalState && finalState.hasLocalChanges) {
         await onRoomEmpty(docId, finalState.ydoc).catch((err) =>
           console.error(`onRoomEmpty failed for ${docId}:`, err)

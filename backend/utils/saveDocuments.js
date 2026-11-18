@@ -24,7 +24,7 @@ const directDocumentFlush = (activeDocuments) => {
     const documentsToFlush = [];
 
     for (const [docId, state] of activeDocuments) {
-      if (state.saveScheduled === false) {
+      if (state.saveScheduled === false && state.hasLocalChanges === true) {
         try {
           const update = Y.encodeStateAsUpdate(state.ydoc);
           documentsToFlush.push({
@@ -56,8 +56,9 @@ const directDocumentFlush = (activeDocuments) => {
       const result = await Document.bulkWrite(bulkOps, { ordered: false });
 
       // Mark all successfully flushed documents as saved
-      documentsToFlush.forEach(({ docId, state }) => {
+      documentsToFlush.forEach(({ state }) => {
         state.saveScheduled = true;
+        state.hasLocalChanges = false;
       });
 
       console.log(`[flush] Successfully saved ${result.modifiedCount} documents to DB in batch.`);
