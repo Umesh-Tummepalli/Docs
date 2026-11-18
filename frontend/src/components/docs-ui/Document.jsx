@@ -92,7 +92,10 @@ export default function Document() {
   const [status, setStatus] = useState("loading");
   const [docData, setDocData] = useState(null);
   const [hasUnseenAccessChanges, setHasUnseenAccessChanges] = useState(false);
-  const [accessPanelOpen, setAccessPanelOpen] = useState(false);
+  const accessPanelOpenRef = useRef(false);
+  const handleAccessPanelOpenChange = useCallback((open) => {
+    accessPanelOpenRef.current = open;
+  }, []);
   const [isRequestingWrite, setIsRequestingWrite] = useState(false);
   const [title, setTitle] = useState("");
   const [isSavingTitle, setIsSavingTitle] = useState(false);
@@ -183,7 +186,7 @@ export default function Document() {
   }, [fetchContent]);
 
   const handleOwnerAccessChanged = useCallback(async () => {
-    if (!accessPanelOpen) {
+    if (!accessPanelOpenRef.current) {
       setHasUnseenAccessChanges(true);
       toast.info('Document access request or permission changed. Open Manage access to review.');
     }
@@ -197,7 +200,7 @@ export default function Document() {
         accessRequests: latest.accessRequests,
       } : current);
     }
-  }, [docId, accessPanelOpen]);
+  }, [docId]);
 
   if (status === "loading") {
     return <Loading />;
@@ -268,7 +271,7 @@ export default function Document() {
              onUpdate={() => fetchContent({ showLoading: false })}
              accessChanged={hasUnseenAccessChanges}
              onAccessChangedSeen={() => setHasUnseenAccessChanges(false)}
-             onOpenChange={setAccessPanelOpen}
+             onOpenChange={handleAccessPanelOpenChange}
           />
           )}
         </div>
