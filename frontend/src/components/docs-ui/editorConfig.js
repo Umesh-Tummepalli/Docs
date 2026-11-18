@@ -1,7 +1,7 @@
 import Heading from "@tiptap/extension-heading";
 import Highlight from "@tiptap/extension-highlight";
 import Link from "@tiptap/extension-link";
-import { TableKit } from "@tiptap/extension-table";
+import { Table } from "@tiptap/extension-table";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import TableRow from "@tiptap/extension-table-row";
@@ -50,8 +50,8 @@ const editorExtensions = [
   TableCell,
   TableRow,
   TableHeader,
-  TableKit.configure({
-    table: { resizable: true },
+  Table.configure({
+    resizable: true,
   }),
   // Single unified image node — handles assetId, uploadId, and direct src
   CustomImage,

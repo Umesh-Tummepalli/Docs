@@ -497,3 +497,94 @@ body {
   user-select: none;
   white-space: nowrap;
 }
+
+/* ─── Table styles ───────────────────────────────────────────────────────────── */
+
+/* Table wrapper — added by tiptap when resizable is enabled */
+.tiptap .tableWrapper {
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  border-radius: 8px;
+}
+
+.tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.tiptap table td,
+.tiptap table th {
+  border: 1px solid #d1d5db;
+  padding: 8px 12px;
+  position: relative;
+  vertical-align: top;
+  min-width: 80px;
+  text-align: left;
+}
+
+.tiptap table td > *,
+.tiptap table th > * {
+  margin-bottom: 0;
+}
+
+/* Header row styling */
+.tiptap table th {
+  background-color: #f0f4f8;
+  font-weight: 600;
+  color: #1e293b;
+  border-bottom: 2px solid #cbd5e1;
+}
+
+/* Alternating row stripes */
+.tiptap table tr:nth-child(even) td {
+  background-color: #fafbfc;
+}
+
+/* Hover effect on rows */
+.tiptap table tr:hover td {
+  background-color: #f1f5f9;
+}
+.tiptap table tr:hover th {
+  background-color: #e2e8f0;
+}
+
+/* Selected cell styling */
+.tiptap table .selectedCell {
+  background-color: #dbeafe !important;
+  border-color: #93c5fd;
+}
+
+.tiptap table .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 87, 208, 0.08);
+  pointer-events: none;
+}
+
+/* Column resize handle */
+.tiptap .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background-color: #0b57d0;
+  pointer-events: none;
+  z-index: 20;
+  border-radius: 2px;
+}
+
+/* Resize cursor on the whole table */
+.tiptap.resize-cursor {
+  cursor: col-resize;
+}
+
+/* Table paragraph resets */
+.tiptap table p {
+  margin: 0;
+}
