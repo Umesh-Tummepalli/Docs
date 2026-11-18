@@ -36,7 +36,7 @@ const getTokenValue = (item) => {
   return item?.token || item?.accessToken || item?.value || item?.access_token;
 };
 
-const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate, accessChanged = false, onAccessChangedSeen }) => {
+const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate, accessChanged = false, onAccessChangedSeen, onOpenChange }) => {
   const [loadingAction, setLoadingAction] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -218,6 +218,7 @@ const AccessPanel = ({ docId, accessList = [], accessRequests = [], onUpdate, ac
   return (
     <Sheet open={isOpen} onOpenChange={(open) => {
       setIsOpen(open);
+      onOpenChange?.(open);
       if (open) {
         onAccessChangedSeen?.();
         loadAccessTokens();

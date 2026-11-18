@@ -92,6 +92,7 @@ export default function Document() {
   const [status, setStatus] = useState("loading");
   const [docData, setDocData] = useState(null);
   const [hasUnseenAccessChanges, setHasUnseenAccessChanges] = useState(false);
+  const [accessPanelOpen, setAccessPanelOpen] = useState(false);
   const [isRequestingWrite, setIsRequestingWrite] = useState(false);
   const [title, setTitle] = useState("");
   const [isSavingTitle, setIsSavingTitle] = useState(false);
@@ -182,8 +183,10 @@ export default function Document() {
   }, [fetchContent]);
 
   const handleOwnerAccessChanged = useCallback(async () => {
-    setHasUnseenAccessChanges(true);
-    toast.info('Document access request or permission changed. Open Manage access to review.');
+    if (!accessPanelOpen) {
+      setHasUnseenAccessChanges(true);
+      toast.info('Document access request or permission changed. Open Manage access to review.');
+    }
     // The owner only refreshes the access/admin data, not the editor document.
     const response = await api.get(`/documents/${docId}`);
     const latest = response?.data?.document;
@@ -194,7 +197,7 @@ export default function Document() {
         accessRequests: latest.accessRequests,
       } : current);
     }
-  }, [docId, docData?.accessLevel]);
+  }, [docId, accessPanelOpen]);
 
   if (status === "loading") {
     return <Loading />;
@@ -265,6 +268,7 @@ export default function Document() {
              onUpdate={() => fetchContent({ showLoading: false })}
              accessChanged={hasUnseenAccessChanges}
              onAccessChangedSeen={() => setHasUnseenAccessChanges(false)}
+             onOpenChange={setAccessPanelOpen}
           />
           )}
         </div>
