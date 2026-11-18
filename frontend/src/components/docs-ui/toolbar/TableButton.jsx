@@ -10,10 +10,10 @@ import {
   MergeIcon,
   SplitIcon,
   Grid2X2Icon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
+  BetweenVerticalStartIcon,
+  BetweenVerticalEndIcon,
+  BetweenHorizontalStartIcon,
+  BetweenHorizontalEndIcon,
   ToggleLeftIcon,
 } from "lucide-react";
 
@@ -33,6 +33,26 @@ const MAX_COLS = 8;
 
 const GridPicker = ({ onSelect }) => {
   const [hover, setHover] = useState({ row: 0, col: 0 });
+  const [customRows, setCustomRows] = useState("");
+  const [customCols, setCustomCols] = useState("");
+
+  const handleCustomInsert = () => {
+    const rows = parseInt(customRows, 10);
+    const cols = parseInt(customCols, 10);
+
+    if (rows > 0 && cols > 0 && rows <= 100 && cols <= 20) {
+      onSelect(rows, cols);
+      setCustomRows("");
+      setCustomCols("");
+    }
+  };
+
+  const handleCustomKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleCustomInsert();
+    }
+  };
 
   return (
     <div className="px-2 pb-2">
@@ -63,6 +83,47 @@ const GridPicker = ({ onSelect }) => {
             />
           );
         })}
+      </div>
+
+      {/* Custom size inputs */}
+      <div className="mt-3 pt-3 border-t border-slate-200">
+        <p className="mb-2 text-xs font-medium text-slate-600">Custom size</p>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min="1"
+            max="100"
+            placeholder="Rows"
+            value={customRows}
+            onChange={(e) => setCustomRows(e.target.value)}
+            onKeyDown={handleCustomKeyDown}
+            className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0b57d0] focus:border-transparent"
+          />
+          <span className="text-slate-400 font-medium">×</span>
+          <input
+            type="number"
+            min="1"
+            max="20"
+            placeholder="Cols"
+            value={customCols}
+            onChange={(e) => setCustomCols(e.target.value)}
+            onKeyDown={handleCustomKeyDown}
+            className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0b57d0] focus:border-transparent"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={handleCustomInsert}
+          disabled={!customRows || !customCols}
+          className={cn(
+            "mt-2 w-full px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+            customRows && customCols
+              ? "bg-[#0b57d0] text-white hover:bg-[#0b57d0]/90"
+              : "bg-slate-100 text-slate-400 cursor-not-allowed"
+          )}
+        >
+          Insert Table
+        </button>
       </div>
     </div>
   );
@@ -155,12 +216,12 @@ const TableButton = () => {
               Columns
             </DropdownMenuLabel>
             <MenuItem
-              Icon={ArrowLeftIcon}
+              Icon={BetweenVerticalStartIcon}
               label="Insert column before"
               onClick={() => run("addColumnBefore")}
             />
             <MenuItem
-              Icon={ArrowRightIcon}
+              Icon={BetweenVerticalEndIcon}
               label="Insert column after"
               onClick={() => run("addColumnAfter")}
             />
@@ -178,12 +239,12 @@ const TableButton = () => {
               Rows
             </DropdownMenuLabel>
             <MenuItem
-              Icon={ArrowUpIcon}
+              Icon={BetweenHorizontalStartIcon}
               label="Insert row before"
               onClick={() => run("addRowBefore")}
             />
             <MenuItem
-              Icon={ArrowDownIcon}
+              Icon={BetweenHorizontalEndIcon}
               label="Insert row after"
               onClick={() => run("addRowAfter")}
             />

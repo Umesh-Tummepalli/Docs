@@ -2,6 +2,7 @@
 import { EditorContent } from '@tiptap/react'
 import { useEditorContext } from './context/EditorContext';
 import LinkTooltip from './toolbar/LinkTooltip';
+import TableControls from './extensions/TableControls';
 
 const Editor = () => {
   const editor = useEditorContext();
@@ -11,6 +12,7 @@ const Editor = () => {
       <div className="w-full bg-[#F9FBFD] px-4 print:p-0 print:bg-white relative">
         <div className="flex justify-center py-4 print:py-0 mx-auto my-4 relative min-w-fit">
           <LinkTooltip />
+          <TableControls />
           <div className="document-page pb-24 print:pb-0 print:shadow-none">
             <EditorContent editor={editor} id="document" />
           </div>
