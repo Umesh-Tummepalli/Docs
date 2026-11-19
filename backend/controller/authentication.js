@@ -42,6 +42,8 @@ const setSessionCookie = (res, token) => {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? "none" : "lax",
+    partitioned: isProd,
+    path: "/",
     maxAge: expiresIn * 1000,
   });
 };
@@ -51,6 +53,8 @@ const clearSessionCookie = (res) => {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? "none" : "lax",
+    partitioned: isProd,
+    path: "/",
   });
 };
 
@@ -59,6 +63,8 @@ const setRegistrationProofCookie = (res, token) => {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? "none" : "lax",
+    partitioned: isProd,
+    path: "/",
     maxAge: REGISTRATION_PROOF_TTL_SECONDS * 1000,
   });
 };
@@ -68,6 +74,8 @@ const clearRegistrationProofCookie = (res) => {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? "none" : "lax",
+    partitioned: isProd,
+    path: "/",
   });
 };
 

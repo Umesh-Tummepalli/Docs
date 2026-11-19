@@ -11,20 +11,33 @@ import { Server } from 'socket.io';
 await connectMongo();
 
 const app = express();
+app.set("trust proxy", 1);
+
+const configuredFrontend = process.env.FRONTEND_URL?.trim();
+const normalizedFrontend = configuredFrontend?.replace(/\/+$/, "");
+const allowedOrigins = Array.from(
+  new Set([configuredFrontend, normalizedFrontend, "http://localhost:5173"].filter(Boolean))
+);
+
+const corsOriginCheck = (origin, callback) => {
+  if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes(origin.replace(/\/+$/, ""))) {
+    return callback(null, true);
+  }
+  return callback(null, true);
+};
+
 const httpserver = createServer(app);
 export const io = new Server(httpserver, {
   cors: {
-     origin: process.env.FRONTEND_URL,
+     origin: corsOriginCheck,
      credentials: true
    }
 });
 
 app.use(cookieParser());
 
-// const configuredFrontendOrigin = process.env.FRONTEND_ORIGIN;
-
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: corsOriginCheck,
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
 }))

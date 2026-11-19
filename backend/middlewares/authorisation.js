@@ -10,6 +10,8 @@ const clearSessionCookie = (res) => {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? "none" : "lax",
+    partitioned: isProd,
+    path: "/",
   });
 };
 
